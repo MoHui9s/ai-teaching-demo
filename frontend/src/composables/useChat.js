@@ -10,11 +10,6 @@ export function useChat(userId) {
   const messageCount = ref(0)
   const controller = ref(null) // AbortController
 
-  // Load history when userId changes
-  watch(userId, () => {
-    loadHistory()
-  }, { immediate: true })
-
   const loadHistory = async () => {
     try {
       const response = await fetch(`/v1/users/${userId.value}/history`)
@@ -28,6 +23,11 @@ export function useChat(userId) {
       messageCount.value = 0
     }
   }
+
+  // Load history when userId changes
+  watch(userId, () => {
+    loadHistory()
+  }, { immediate: true })
 
   const sendMessage = async (content) => {
     if (!content?.trim() || isLoading.value) return false
