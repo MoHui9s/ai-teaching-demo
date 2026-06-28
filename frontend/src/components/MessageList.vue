@@ -1,5 +1,5 @@
 <script setup>
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 import MessageBubble from './MessageBubble.vue'
 import WelcomeScreen from './WelcomeScreen.vue'
 
@@ -12,18 +12,29 @@ const props = defineProps({
 const isEmpty = computed(() => props.messages.length === 0)
 const showStreaming = computed(() => props.isLoading || props.streamingContent)
 
+// Use a fixed timestamp for streaming message to prevent re-renders
+const streamingTimestamp = ref('')
+
 // Combine messages with streaming content for display
 const displayMessages = computed(() => {
   if (showStreaming.value && props.streamingContent) {
+    // Set timestamp only once when streaming starts
+    if (!streamingTimestamp.value) {
+      streamingTimestamp.value = new Date().toISOString()
+    }
     return [
       ...props.messages,
       {
         role: 'assistant',
         content: props.streamingContent,
-        timestamp: new Date().toISOString(),
+        timestamp: streamingTimestamp.value,
         streaming: true
       }
     ]
+  }
+  // Reset timestamp when not streaming
+  if (!showStreaming.value) {
+    streamingTimestamp.value = ''
   }
   return props.messages
 })

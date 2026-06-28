@@ -121,12 +121,12 @@ defineExpose({
 
 .input-wrapper {
   display: flex;
-  flex-direction: column;
-  gap: var(--spacing-xs);
+  gap: var(--spacing-sm);
+  align-items: flex-end;
 }
 
 .message-input {
-  width: 100%;
+  flex: 1;
   padding: 12px 14px;
   border: 1.5px solid var(--border-color);
   border-radius: var(--radius-md);
