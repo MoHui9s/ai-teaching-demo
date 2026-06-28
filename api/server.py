@@ -21,6 +21,7 @@ from memory import MemoryStore
 from api.schemas import (
     ChatRequest, ChatCompletion, ChatCompletionChunk, ErrorResponse
 )
+from api import voice
 from logging_config import (
     setup_logging, get_logger, log_request, log_response,
     log_error, log_user_action
@@ -44,6 +45,9 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Include voice service router
+app.include_router(voice.router)
 
 # Mount static files for the frontend
 static_dir = Path(__file__).parent.parent / "static"
