@@ -1,0 +1,10 @@
+[
+  {
+    "role": "user",
+    "content": "请回复：ok"
+  },
+  {
+    "role": "assistant",
+    "content": "ok"
+  }
+]

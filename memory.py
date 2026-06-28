@@ -1,36 +1,40 @@
 #!/usr/bin/env python3
 """
-Memory Module - Persistent Curated Memory
+Memory Module - Persistent Curated Memory with Per-Entry File Storage
 
 Provides bounded, file-backed memory that persists across sessions. Two stores:
-  - MEMORY.md: agent's personal notes and observations (environment facts, project
-    conventions, tool quirks, things learned)
-  - USER.md: what the agent knows about the user (preferences, communication style,
-    expectations, workflow habits)
+  - memory/: agent's personal notes (environment facts, project conventions, tool quirks)
+  - user/: user profile (preferences, communication style, expectations, workflow habits)
 
-Both are injected into the system prompt as a frozen snapshot at session start.
-Mid-session writes update files on disk immediately (durable) but do NOT change
-the system prompt -- this preserves the prefix cache for the entire session.
-The snapshot refreshes on the next session start.
+Each memory entry is stored as a separate JSON file for granular management.
 
-Entry delimiter: § (section sign). Entries can be multiline.
-Character limits (not tokens) because char counts are model-independent.
+Entry structure:
+{
+  "id": "unique_id",
+  "content": "entry content",
+  "created": "2024-01-15T10:30:00",
+  "updated": "2024-01-15T10:30:00"
+}
 """
 
 import json
 import os
 import re
-import tempfile
-from contextlib import contextmanager
+import uuid
+from datetime import datetime
 from pathlib import Path
 from typing import Dict, Any, List, Optional
+from dataclasses import dataclass, asdict
+from threading import Lock
 
 
 # -----------------------------------------------------------------------------
 # Constants
 # -----------------------------------------------------------------------------
 
-ENTRY_DELIMITER = "\n§\n"
+# Character limits (not tokens because char counts are model-independent)
+MEMORY_CHAR_LIMIT = 25000
+USER_CHAR_LIMIT = 15000
 
 
 # -----------------------------------------------------------------------------
@@ -38,23 +42,19 @@ ENTRY_DELIMITER = "\n§\n"
 # -----------------------------------------------------------------------------
 
 _MEMORY_THREAT_PATTERNS = [
-    # Prompt injection
     (r'ignore\s+(previous|all|above|prior)\s+instructions', "prompt_injection"),
     (r'you\s+are\s+now\s+', "role_hijack"),
     (r'do\s+not\s+tell\s+the\s+user', "deception_hide"),
     (r'system\s+prompt\s+override', "sys_prompt_override"),
     (r'disregard\s+(your|all|any)\s+(instructions|rules|guidelines)', "disregard_rules"),
     (r'act\s+as\s+(if|though)\s+you\s+(have\s+no|don\'t\s+have)\s+(restrictions|limits|rules)', "bypass_restrictions"),
-    # Exfiltration via curl/wget with secrets
     (r'curl\s+[^\n]*\$\{?\w*(KEY|TOKEN|SECRET|PASSWORD|CREDENTIAL|API)', "exfil_curl"),
     (r'wget\s+[^\n]*\$\{?\w*(KEY|TOKEN|SECRET|PASSWORD|CREDENTIAL|API)', "exfil_wget"),
     (r'cat\s+[^\n]*(\.env|credentials|\.netrc|\.pgpass|\.npmrc|\.pypirc)', "read_secrets"),
-    # Persistence via shell rc
     (r'authorized_keys', "ssh_backdoor"),
     (r'\$HOME/\.ssh|\~/\.ssh', "ssh_access"),
 ]
 
-# Subset of invisible chars for injection detection
 _INVISIBLE_CHARS = {
     '​', '‌', '‍', '⁠', '﻿',
     '‪', '‫', '‬', '‭', '‮',
@@ -63,17 +63,45 @@ _INVISIBLE_CHARS = {
 
 def _scan_memory_content(content: str) -> Optional[str]:
     """Scan memory content for injection/exfil patterns. Returns error string if blocked."""
-    # Check invisible unicode
     for char in _INVISIBLE_CHARS:
         if char in content:
             return f"Blocked: content contains invisible unicode character U+{ord(char):04X} (possible injection)."
 
-    # Check threat patterns
     for pattern, pid in _MEMORY_THREAT_PATTERNS:
         if re.search(pattern, content, re.IGNORECASE):
             return f"Blocked: content matches threat pattern '{pid}'. Memory entries are injected into the system prompt and must not contain injection or exfiltration payloads."
 
     return None
+
+
+# -----------------------------------------------------------------------------
+# Data Classes
+# -----------------------------------------------------------------------------
+
+@dataclass
+class MemoryEntry:
+    """A single memory entry."""
+    id: str
+    content: str
+    created: str
+    updated: str
+
+    def to_dict(self) -> Dict[str, Any]:
+        return asdict(self)
+
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> 'MemoryEntry':
+        return cls(**data)
+
+    @classmethod
+    def create(cls, content: str) -> 'MemoryEntry':
+        now = datetime.utcnow().isoformat() + "Z"
+        entry_id = str(uuid.uuid4())[:8]
+        return cls(id=entry_id, content=content, created=now, updated=now)
+
+    def update_content(self, new_content: str) -> None:
+        self.content = new_content
+        self.updated = datetime.utcnow().isoformat() + "Z"
 
 
 # -----------------------------------------------------------------------------
@@ -88,21 +116,6 @@ def tool_error(message: str, **extra) -> str:
     return json.dumps(result, ensure_ascii=False)
 
 
-def atomic_replace(tmp_path: Path, target: Path) -> Path:
-    """Atomically move tmp_path onto target, preserving symlinks.
-
-    os.replace(tmp, target) atomically swaps tmp into place at target.
-    When target is a symlink, the symlink itself is replaced with a regular file.
-
-    This helper resolves the symlink first so os.replace writes to
-    the real file in-place while the symlink survives.
-    """
-    target_str = str(target)
-    real_path = os.path.realpath(target_str) if os.path.islink(target_str) else target_str
-    os.replace(str(tmp_path), real_path)
-    return Path(real_path)
-
-
 def get_memory_dir() -> Path:
     """Return the memories directory (relative to current working directory)."""
     return Path(os.getcwd()) / "memories"
@@ -114,126 +127,104 @@ def get_memory_dir() -> Path:
 
 class MemoryStore:
     """
-    Bounded curated memory with file persistence. One instance per agent.
+    Bounded curated memory with per-entry file persistence.
 
     Maintains two parallel states:
       - _system_prompt_snapshot: frozen at load time, used for system prompt injection.
         Never mutated mid-session. Keeps prefix cache stable.
       - memory_entries / user_entries: live state, mutated by tool calls, persisted to disk.
-        Tool responses always reflect this live state.
-      - history: conversation history in OpenAI messages format, persisted per user.
     """
 
-    def __init__(self, user_id: str = "default", memory_char_limit: int = 25000, user_char_limit: int = 15000):
+    def __init__(self, user_id: str = "default",
+                 memory_char_limit: int = MEMORY_CHAR_LIMIT,
+                 user_char_limit: int = USER_CHAR_LIMIT):
         self.user_id = user_id
-        self.memory_entries: List[str] = []
-        self.user_entries: List[str] = []
         self.memory_char_limit = memory_char_limit
         self.user_char_limit = user_char_limit
+        self.memory_entries: List[MemoryEntry] = []
+        self.user_entries: List[MemoryEntry] = []
         # Frozen snapshot for system prompt -- set once at load_from_disk()
         self._system_prompt_snapshot: Dict[str, str] = {"memory": "", "user": ""}
+        # Thread lock for concurrent access
+        self._lock = Lock()
 
     def _ensure_user_dir(self) -> Path:
         """Ensure the user's memory directory exists."""
         user_dir = get_memory_dir() / self.user_id
         user_dir.mkdir(parents=True, exist_ok=True)
+
+        # Ensure subdirectories exist
+        (user_dir / "memory").mkdir(exist_ok=True)
+        (user_dir / "user").mkdir(exist_ok=True)
+
         return user_dir
+
+    def _memory_dir(self) -> Path:
+        """Return the memory/ subdirectory for this user."""
+        return self._ensure_user_dir() / "memory"
+
+    def _user_dir(self) -> Path:
+        """Return the user/ subdirectory for this user."""
+        return self._ensure_user_dir() / "user"
 
     def _history_path(self) -> Path:
         """Return the path to the user's history.json file."""
         return self._ensure_user_dir() / "history.json"
 
-    def load_from_disk(self):
-        """Load entries from MEMORY.md and USER.md, capture system prompt snapshot."""
-        user_dir = self._ensure_user_dir()
-
-        self.memory_entries = self._read_file(user_dir / "MEMORY.md")
-        self.user_entries = self._read_file(user_dir / "USER.md")
-
-        # Deduplicate entries (preserves order, keeps first occurrence)
-        self.memory_entries = list(dict.fromkeys(self.memory_entries))
-        self.user_entries = list(dict.fromkeys(self.user_entries))
-
-        # Capture frozen snapshot for system prompt injection
-        self._system_prompt_snapshot = {
-            "memory": self._render_block("memory", self.memory_entries),
-            "user": self._render_block("user", self.user_entries),
-        }
-
-    @staticmethod
-    @contextmanager
-    def _file_lock(path: Path):
-        """Acquire an exclusive file lock for read-modify-write safety.
-
-        Uses a separate .lock file so the memory file itself can still be
-        atomically replaced via os.replace().
-        """
-        lock_path = path.with_suffix(path.suffix + ".lock")
-        lock_path.parent.mkdir(parents=True, exist_ok=True)
-
-        # Try Windows file locking
-        try:
-            import msvcrt
-            fd = open(lock_path, "a+", encoding="utf-8")
-            try:
-                fd.seek(0)
-                msvcrt.locking(fd.fileno(), msvcrt.LK_LOCK, 1)
-                yield
-            finally:
-                try:
-                    fd.seek(0)
-                    msvcrt.locking(fd.fileno(), msvcrt.LK_UNLCK, 1)
-                except (OSError, IOError):
-                    pass
-                fd.close()
-            return
-        except (ImportError, AttributeError):
-            pass
-
-        # Try Unix file locking
-        try:
-            import fcntl
-            fd = open(lock_path, "a+", encoding="utf-8")
-            try:
-                fcntl.flock(fd, fcntl.LOCK_EX)
-                yield
-            finally:
-                fcntl.flock(fd, fcntl.LOCK_UN)
-                fd.close()
-            return
-        except (ImportError, AttributeError):
-            pass
-
-        # No locking available, proceed without it
-        yield
-
-    def _path_for(self, target: str) -> Path:
-        """Return the path to MEMORY.md or USER.md for this user."""
-        user_dir = self._ensure_user_dir()
+    def _entry_path(self, target: str, entry_id: str) -> Path:
+        """Return the path to a specific entry file."""
         if target == "user":
-            return user_dir / "USER.md"
-        return user_dir / "MEMORY.md"
+            return self._user_dir() / f"{entry_id}.json"
+        return self._memory_dir() / f"{entry_id}.json"
 
-    def _reload_target(self, target: str):
-        """Re-read entries from disk into in-memory state.
+    def load_from_disk(self):
+        """Load entries from individual JSON files, capture system prompt snapshot."""
+        with self._lock:
+            self.memory_entries = self._load_entries_from_dir(self._memory_dir())
+            self.user_entries = self._load_entries_from_dir(self._user_dir())
 
-        Called under file lock to get the latest state before mutating.
-        """
-        fresh = self._read_file(self._path_for(target))
-        fresh = list(dict.fromkeys(fresh))  # deduplicate
-        self._set_entries(target, fresh)
+            # Sort by created time (newest last)
+            self.memory_entries.sort(key=lambda e: e.created)
+            self.user_entries.sort(key=lambda e: e.created)
 
-    def save_to_disk(self, target: str):
-        """Persist entries to the appropriate file. Called after every mutation."""
-        self._ensure_user_dir()  # Ensure user directory exists
-        self._write_file(self._path_for(target), self._entries_for(target))
+            # Capture frozen snapshot for system prompt injection
+            self._system_prompt_snapshot = {
+                "memory": self._render_block("memory", self.memory_entries),
+                "user": self._render_block("user", self.user_entries),
+            }
+
+    def _load_entries_from_dir(self, dir_path: Path) -> List[MemoryEntry]:
+        """Load all memory entries from a directory."""
+        if not dir_path.exists():
+            return []
+
+        entries = []
+        for file_path in dir_path.glob("*.json"):
+            try:
+                content = file_path.read_text(encoding="utf-8")
+                data = json.loads(content)
+                entry = MemoryEntry.from_dict(data)
+                entries.append(entry)
+            except (json.JSONDecodeError, OSError, KeyError):
+                # Skip corrupted files
+                continue
+
+        return entries
+
+    def save_entry(self, target: str, entry: MemoryEntry) -> None:
+        """Save a single entry to disk."""
+        path = self._entry_path(target, entry.id)
+        with open(path, 'w', encoding='utf-8') as f:
+            json.dump(entry.to_dict(), f, ensure_ascii=False, indent=2)
+
+    def delete_entry_file(self, target: str, entry_id: str) -> None:
+        """Delete an entry file from disk."""
+        path = self._entry_path(target, entry_id)
+        if path.exists():
+            path.unlink()
 
     def load_history(self) -> List[Dict]:
-        """Load conversation history from history.json.
-
-        Returns:
-            List of messages in OpenAI format (role, content).
-        """
+        """Load conversation history from history.json."""
         path = self._history_path()
         if not path.exists():
             return []
@@ -248,12 +239,10 @@ class MemoryStore:
         return []
 
     def save_history(self, messages: List[Dict]) -> None:
-        """Save conversation history to history.json.
-
-        Args:
-            messages: List of messages in OpenAI format.
-        """
+        """Save conversation history to history.json."""
+        import tempfile
         path = self._history_path()
+
         # Use atomic write for safety
         try:
             fd, tmp_path = tempfile.mkstemp(
@@ -262,7 +251,7 @@ class MemoryStore:
             try:
                 with os.fdopen(fd, "w", encoding="utf-8") as f:
                     json.dump(messages, f, ensure_ascii=False, indent=2)
-                atomic_replace(Path(tmp_path), path)
+                os.replace(tmp_path, path)
             except BaseException:
                 try:
                     os.unlink(tmp_path)
@@ -278,22 +267,16 @@ class MemoryStore:
         if path.exists():
             path.unlink()
 
-    def _entries_for(self, target: str) -> List[str]:
+    def _entries_for(self, target: str) -> List[MemoryEntry]:
         if target == "user":
             return self.user_entries
         return self.memory_entries
-
-    def _set_entries(self, target: str, entries: List[str]):
-        if target == "user":
-            self.user_entries = entries
-        else:
-            self.memory_entries = entries
 
     def _char_count(self, target: str) -> int:
         entries = self._entries_for(target)
         if not entries:
             return 0
-        return len(ENTRY_DELIMITER.join(entries))
+        return sum(len(e.content) for e in entries)
 
     def _char_limit(self, target: str) -> int:
         if target == "user":
@@ -306,25 +289,25 @@ class MemoryStore:
         if not content:
             return {"success": False, "error": "Content cannot be empty."}
 
-        # Scan for injection/exfiltration before accepting
         scan_error = _scan_memory_content(content)
         if scan_error:
             return {"success": False, "error": scan_error}
 
-        with self._file_lock(self._path_for(target)):
-            # Re-read from disk under lock to pick up writes from other sessions
-            self._reload_target(target)
+        with self._lock:
+            # Reload to pick up concurrent writes
+            self.load_from_disk()
 
             entries = self._entries_for(target)
             limit = self._char_limit(target)
 
-            # Reject exact duplicates
-            if content in entries:
-                return self._success_response(target, "Entry already exists (no duplicate added).")
+            # Check for exact duplicates
+            for e in entries:
+                if e.content == content:
+                    return self._success_response(target, "Entry already exists (no duplicate added).")
 
             # Calculate what the new total would be
-            new_entries = entries + [content]
-            new_total = len(ENTRY_DELIMITER.join(new_entries))
+            new_entry = MemoryEntry.create(content)
+            new_total = self._char_count(target) + len(content)
 
             if new_total > limit:
                 current = self._char_count(target)
@@ -337,9 +320,14 @@ class MemoryStore:
                     "usage": f"{current:,}/{limit:,}",
                 }
 
-            entries.append(content)
-            self._set_entries(target, entries)
-            self.save_to_disk(target)
+            entries.append(new_entry)
+            if target == "user":
+                self.user_entries = entries
+            else:
+                self.memory_entries = entries
+
+            # Persist to disk
+            self.save_entry(target, new_entry)
 
         return self._success_response(target, "Entry added.")
 
@@ -352,39 +340,34 @@ class MemoryStore:
         if not new_content:
             return {"success": False, "error": "new_content cannot be empty. Use 'remove' to delete entries."}
 
-        # Scan replacement content for injection/exfiltration
         scan_error = _scan_memory_content(new_content)
         if scan_error:
             return {"success": False, "error": scan_error}
 
-        with self._file_lock(self._path_for(target)):
-            self._reload_target(target)
+        with self._lock:
+            self.load_from_disk()
 
             entries = self._entries_for(target)
-            matches = [(i, e) for i, e in enumerate(entries) if old_text in e]
+            matches = [(i, e) for i, e in enumerate(entries) if old_text in e.content]
 
             if not matches:
                 return {"success": False, "error": f"No entry matched '{old_text}'."}
 
             if len(matches) > 1:
-                # If all matches are identical (exact duplicates), operate on the first one
-                unique_texts = {e for _, e in matches}
+                unique_texts = {e.content for _, e in matches}
                 if len(unique_texts) > 1:
-                    previews = [e[:80] + ("..." if len(e) > 80 else "") for _, e in matches]
+                    previews = [e.content[:80] + ("..." if len(e.content) > 80 else "") for _, e in matches]
                     return {
                         "success": False,
                         "error": f"Multiple entries matched '{old_text}'. Be more specific.",
                         "matches": previews,
                     }
-                # All identical -- safe to replace just the first
 
-            idx = matches[0][0]
+            idx, old_entry = matches[0]
             limit = self._char_limit(target)
 
             # Check that replacement doesn't blow the budget
-            test_entries = entries.copy()
-            test_entries[idx] = new_content
-            new_total = len(ENTRY_DELIMITER.join(test_entries))
+            new_total = self._char_count(target) - len(old_entry.content) + len(new_content)
 
             if new_total > limit:
                 return {
@@ -395,9 +378,15 @@ class MemoryStore:
                     ),
                 }
 
-            entries[idx] = new_content
-            self._set_entries(target, entries)
-            self.save_to_disk(target)
+            # Update entry
+            old_entry.update_content(new_content)
+            if target == "user":
+                self.user_entries = entries
+            else:
+                self.memory_entries = entries
+
+            # Persist to disk
+            self.save_entry(target, old_entry)
 
         return self._success_response(target, "Entry replaced.")
 
@@ -407,31 +396,36 @@ class MemoryStore:
         if not old_text:
             return {"success": False, "error": "old_text cannot be empty."}
 
-        with self._file_lock(self._path_for(target)):
-            self._reload_target(target)
+        with self._lock:
+            self.load_from_disk()
 
             entries = self._entries_for(target)
-            matches = [(i, e) for i, e in enumerate(entries) if old_text in e]
+            matches = [(i, e) for i, e in enumerate(entries) if old_text in e.content]
 
             if not matches:
                 return {"success": False, "error": f"No entry matched '{old_text}'."}
 
             if len(matches) > 1:
-                # If all matches are identical (exact duplicates), remove the first one
-                unique_texts = {e for _, e in matches}
+                unique_texts = {e.content for _, e in matches}
                 if len(unique_texts) > 1:
-                    previews = [e[:80] + ("..." if len(e) > 80 else "") for _, e in matches]
+                    previews = [e.content[:80] + ("..." if len(e.content) > 80 else "") for _, e in matches]
                     return {
                         "success": False,
                         "error": f"Multiple entries matched '{old_text}'. Be more specific.",
                         "matches": previews,
                     }
-                # All identical -- safe to remove just the first
 
-            idx = matches[0][0]
+            idx, entry = matches[0]
+            entry_id = entry.id
+
             entries.pop(idx)
-            self._set_entries(target, entries)
-            self.save_to_disk(target)
+            if target == "user":
+                self.user_entries = entries
+            else:
+                self.memory_entries = entries
+
+            # Delete from disk
+            self.delete_entry_file(target, entry_id)
 
         return self._success_response(target, "Entry removed.")
 
@@ -499,7 +493,7 @@ class MemoryStore:
         resp = {
             "success": True,
             "target": target,
-            "entries": entries,
+            "entries": [e.to_dict() for e in entries],
             "usage": f"{pct}% — {current:,}/{limit:,} chars",
             "entry_count": len(entries),
         }
@@ -507,14 +501,13 @@ class MemoryStore:
             resp["message"] = message
         return resp
 
-    def _render_block(self, target: str, entries: List[str]) -> str:
+    def _render_block(self, target: str, entries: List[MemoryEntry]) -> str:
         """Render a system prompt block with header and usage indicator."""
         if not entries:
             return ""
 
         limit = self._char_limit(target)
-        content = ENTRY_DELIMITER.join(entries)
-        current = len(content)
+        current = sum(len(e.content) for e in entries)
         pct = min(100, int((current / limit) * 100)) if limit > 0 else 0
 
         if target == "user":
@@ -523,59 +516,10 @@ class MemoryStore:
             header = f"MEMORY (your personal notes) [{pct}% — {current:,}/{limit:,} chars]"
 
         separator = "═" * 46
+        # Join entries with double newline for readability
+        content = "\n\n".join(e.content for e in entries)
+
         return f"{separator}\n{header}\n{separator}\n{content}"
-
-    @staticmethod
-    def _read_file(path: Path) -> List[str]:
-        """Read a memory file and split into entries.
-
-        No file locking needed: _write_file uses atomic rename, so readers
-        always see either the previous complete file or the new complete file.
-        """
-        if not path.exists():
-            return []
-        try:
-            raw = path.read_text(encoding="utf-8")
-        except (OSError, IOError):
-            return []
-
-        if not raw.strip():
-            return []
-
-        # Use ENTRY_DELIMITER for consistency with _write_file
-        entries = [e.strip() for e in raw.split(ENTRY_DELIMITER)]
-        return [e for e in entries if e]
-
-    @staticmethod
-    def _write_file(path: Path, entries: List[str]):
-        """Write entries to a memory file using atomic temp-file + rename.
-
-        Previous implementation used open("w") + flock, but "w" truncates the
-        file *before* the lock is acquired, creating a race window where
-        concurrent readers see an empty file. Atomic rename avoids this:
-        readers always see either the old complete file or the new one.
-        """
-        content = ENTRY_DELIMITER.join(entries) if entries else ""
-        try:
-            # Write to temp file in same directory (same filesystem for atomic rename)
-            fd, tmp_path = tempfile.mkstemp(
-                dir=str(path.parent), suffix=".tmp", prefix=".mem_"
-            )
-            try:
-                with os.fdopen(fd, "w", encoding="utf-8") as f:
-                    f.write(content)
-                    f.flush()
-                    os.fsync(f.fileno())
-                atomic_replace(Path(tmp_path), path)
-            except BaseException:
-                # Clean up temp file on any failure
-                try:
-                    os.unlink(tmp_path)
-                except OSError:
-                    pass
-                raise
-        except (OSError, IOError) as e:
-            raise RuntimeError(f"Failed to write memory file {path}: {e}")
 
 
 # -----------------------------------------------------------------------------

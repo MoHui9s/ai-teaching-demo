@@ -8,7 +8,13 @@ import json
 import logging
 from pathlib import Path
 from datetime import datetime
-from typing import List, Dict, Optional, Generator, Union
+from typing import List, Dict, Optional, Generator, Union, Any
+
+# Import logging configuration
+from logging_config import (
+    setup_logging, get_logger, log_request, log_response,
+    log_error, log_user_action, log_tool_call
+)
 
 # Windows 编码修复：在导入其他模块后立即设置
 if sys.platform == "win32":
@@ -38,27 +44,12 @@ from memory import MemoryStore, MEMORY_TOOL_SCHEMA
 MAX_CONTEXT_ROUNDS = int(os.getenv("MAX_CONTEXT_ROUNDS", "40"))
 DEBUG = os.getenv("DEBUG", "").lower() in ("1", "true", "yes", "on")
 
-# -----------------------------------------------------------------------------
-# Logging setup
-# -----------------------------------------------------------------------------
+# Logging configuration from environment
+LOG_LEVEL = os.getenv("LOG_LEVEL", "DEBUG" if DEBUG else "INFO")
+LOG_FILE = os.getenv("LOG_FILE", "true").lower() in ("1", "true", "yes", "on")
 
-def setup_logging():
-    """Configure logging based on DEBUG flag."""
-    if DEBUG:
-        log_level = logging.DEBUG
-        log_format = "%(asctime)s [%(levelname)s] %(name)s: %(message)s"
-    else:
-        log_level = logging.WARNING
-        log_format = "%(levelname)s: %(message)s"
-
-    logging.basicConfig(
-        level=log_level,
-        format=log_format,
-        datefmt="%H:%M:%S"
-    )
-    return logging.getLogger("hermes")
-
-logger = setup_logging()
+# Setup logging
+logger = setup_logging(log_level=LOG_LEVEL, log_file=LOG_FILE)
 
 # API Configuration
 api_key = os.getenv("OPENAI_API_KEY") or os.getenv("ANTHROPIC_API_KEY")
@@ -224,20 +215,22 @@ class HermesAgent:
         self.history = self.memory_store.load_history()
         logger.debug(f"Initialized HermesAgent for user '{user_id}' with {len(self.history)} history messages")
 
-    def chat(self, prompt: str) -> str:
+    def _prepare_request(self, prompt: str, messages: List[Dict] = None):
         """
-        Process a user message and return the assistant's response.
+        Prepare API request for a user message.
 
         Args:
             prompt: User's input message
+            messages: Optional custom messages list (for streaming reuse)
 
         Returns:
-            Assistant's text response
+            Tuple of (headers, payload, messages_with_system)
         """
-        # Add user message to history
-        user_msg = {"role": "user", "content": prompt}
-        self.history.append(user_msg)
-        logger.debug(f"Added user message. Total history: {len(self.history)} messages")
+        if messages is None:
+            # Add user message to history
+            user_msg = {"role": "user", "content": prompt}
+            self.history.append(user_msg)
+            logger.debug(f"Added user message. Total history: {len(self.history)} messages")
 
         # Build system prompt
         system_content = build_system_prompt(self.memory_store)
@@ -264,26 +257,18 @@ class HermesAgent:
 
         logger.debug(f"API Request to {chat_url}")
 
-        try:
-            response = requests.post(chat_url, headers=headers, json=payload, timeout=120)
-            response.raise_for_status()
-            data = response.json()
+        return headers, payload, messages_with_system
 
-        except requests.exceptions.Timeout:
-            return "# 错误：请求超时（超过120秒）"
-        except requests.exceptions.HTTPError as e:
-            return f"# 错误：HTTP {e.response.status_code} - {e.response.text[:200]}"
-        except requests.exceptions.RequestException as e:
-            return f"# 错误：请求失败 - {str(e)}"
-        except Exception as e:
-            return f"# 错误：未知错误 - {str(e)}"
+    def _handle_response_message(self, message: Dict[str, Any]) -> tuple[str, bool]:
+        """
+        Handle the assistant response message.
 
-        # Extract message from response
-        try:
-            message = data["choices"][0]["message"]
-        except (KeyError, IndexError) as e:
-            return f"# 错误：API 响应格式异常 - {str(e)}"
+        Args:
+            message: The assistant message from the API
 
+        Returns:
+            Tuple of (response_text, had_tool_calls)
+        """
         # Build assistant message
         content_value = message.get("content")
         if content_value is None:
@@ -333,16 +318,51 @@ class HermesAgent:
 
             self.history.extend(results)
             # Continue loop for tool responses
-            return self._continue_after_tools()
+            return self._continue_after_tools(), True
 
         # No tool calls, save and return
         self.memory_store.save_history(self.history)
 
         response_content = message.get("content") or ""
         if not response_content:
-            return "# 注意：模型返回了空响应，请重试或检查 API 配置"
+            return "# 注意：模型返回了空响应，请重试或检查 API 配置", False
 
-        return response_content
+        return response_content, False
+
+    def chat(self, prompt: str) -> str:
+        """
+        Process a user message and return the assistant's response.
+
+        Args:
+            prompt: User's input message
+
+        Returns:
+            Assistant's text response
+        """
+        headers, payload, _ = self._prepare_request(prompt)
+
+        try:
+            response = requests.post(chat_url, headers=headers, json=payload, timeout=120)
+            response.raise_for_status()
+            data = response.json()
+
+        except requests.exceptions.Timeout:
+            return "# 错误：请求超时（超过120秒）"
+        except requests.exceptions.HTTPError as e:
+            return f"# 错误：HTTP {e.response.status_code} - {e.response.text[:200]}"
+        except requests.exceptions.RequestException as e:
+            return f"# 错误：请求失败 - {str(e)}"
+        except Exception as e:
+            return f"# 错误：未知错误 - {str(e)}"
+
+        # Extract message from response
+        try:
+            message = data["choices"][0]["message"]
+        except (KeyError, IndexError) as e:
+            return f"# 错误：API 响应格式异常 - {str(e)}"
+
+        text, _ = self._handle_response_message(message)
+        return text
 
     def _continue_after_tools(self) -> str:
         """Continue conversation after tool calls."""

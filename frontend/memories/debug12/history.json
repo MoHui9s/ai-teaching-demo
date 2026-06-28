@@ -1,0 +1,10 @@
+[
+  {
+    "role": "user",
+    "content": "Hi"
+  },
+  {
+    "role": "assistant",
+    "content": "你好！你好！很高兴见到你。我可以帮助你完成各种任务，比如编程、写作、分析问题等等。\n\n我注意到你当前的工作目录是 `C:\\Users\\14907\\soft\\hermes_agent\\frontend`，看起来像是一个前端项目。有什么我可以帮助你的吗？"
+  }
+]
