@@ -2,6 +2,7 @@ import { ref, watch } from 'vue'
 import { streamChat } from '../utils/api'
 
 const MAX_MESSAGE_LENGTH = 8000
+const STREAM_TIMEOUT = 120000 // 120 seconds, matches backend timeout
 
 export function useChat(userId) {
   const messages = ref([])
@@ -50,17 +51,32 @@ export function useChat(userId) {
     streamingContent.value = ''
     controller.value = new AbortController()
 
+    // Set up timeout to handle stuck requests
+    let timeoutId = null
+    const timeoutPromise = new Promise((_, reject) => {
+      timeoutId = setTimeout(() => {
+        controller.value.abort()
+        reject(new Error('请求超时了。消息历史可能过长,建议清理部分历史记录或稍后重试。'))
+      }, STREAM_TIMEOUT)
+    })
+
     try {
-      // Stream the response
+      // Stream the response with timeout
       let assistantContent = ''
-      await streamChat(
-        [...messages.value],
-        userId.value,
-        (chunk) => {
-          streamingContent.value = chunk
-        },
-        controller.value.signal
-      )
+      await Promise.race([
+        streamChat(
+          [...messages.value],
+          userId.value,
+          (chunk) => {
+            streamingContent.value = chunk
+          },
+          controller.value.signal
+        ),
+        timeoutPromise
+      ])
+
+      // Clear timeout if request completed successfully
+      if (timeoutId) clearTimeout(timeoutId)
 
       assistantContent = streamingContent.value
 
@@ -75,9 +91,21 @@ export function useChat(userId) {
       streamingContent.value = ''
       return true
     } catch (error) {
+      // Clear timeout
+      if (timeoutId) clearTimeout(timeoutId)
+
       if (error.name === 'AbortError') {
-        // User stopped the generation
-        if (streamingContent.value) {
+        // Check if it was aborted by timeout or user
+        if (error.message.includes('请求超时')) {
+          // Timeout occurred
+          const timeoutMsg = {
+            role: 'error',
+            content: error.message,
+            timestamp: new Date().toISOString()
+          }
+          messages.value.push(timeoutMsg)
+        } else if (streamingContent.value) {
+          // User stopped the generation
           const partialMsg = {
             role: 'assistant',
             content: streamingContent.value + '\n\n*[Stopped by user]*',
@@ -86,10 +114,16 @@ export function useChat(userId) {
           messages.value.push(partialMsg)
         }
       } else {
-        // Show error
+        // Network or other error - show user-friendly message
+        const userFriendlyError = error.message.includes('fetch') ||
+          error.message.includes('network') ||
+          error.message.includes('Network')
+          ? '网络连接出现问题,请检查网络后重试。'
+          : (error.message || '服务暂时不可用,请稍后重试。')
+
         const errorMsg = {
           role: 'error',
-          content: error.message || 'An error occurred',
+          content: userFriendlyError,
           timestamp: new Date().toISOString()
         }
         messages.value.push(errorMsg)

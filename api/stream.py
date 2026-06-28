@@ -10,6 +10,9 @@ import sys
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 from agent import chat_url, api_key
+from logging_config import get_logger
+
+logger = get_logger()
 
 
 def generate_completion_id() -> str:
@@ -76,8 +79,12 @@ def stream_agent_chat(agent, messages: list, model: str = "hermes") -> Generator
     user_msg = messages[-1] if messages and messages[-1].get("role") == "user" else None
     if not user_msg:
         # No user message to process
+        logger.warning("No user message provided for streaming")
         yield "data: [DONE]\n\n"
         return
+
+    user_prompt = user_msg.get("content", "")
+    logger.info(f"Starting stream for user '{agent.user_id}' | prompt_length={len(user_prompt)}")
 
     # Prepare request using agent's shared logic
     # Pass the user prompt so agent._prepare_request appends it to history
@@ -95,26 +102,60 @@ def stream_agent_chat(agent, messages: list, model: str = "hermes") -> Generator
     has_tool_calls = False
 
     # Phase 1: Stream upstream, forward content deltas, accumulate message
-    with requests.post(chat_url, headers=headers, json=payload, stream=True, timeout=120) as response:
-        try:
-            response.raise_for_status()
-        except Exception as e:
-            # Yield error chunk
-            error_chunk = {
-                "id": completion_id,
-                "object": "chat.completion.chunk",
-                "created": created,
-                "model": model,
-                "choices": [{
-                    "index": 0,
-                    "delta": {"content": f"# Error: {str(e)}"},
-                    "finish_reason": "stop"
-                }]
-            }
-            yield f"data: {json.dumps(error_chunk, ensure_ascii=False)}\n\n"
-            yield "data: [DONE]\n\n"
-            return
+    try:
+        response = requests.post(chat_url, headers=headers, json=payload, stream=True, timeout=120)
+        response.raise_for_status()
+    except requests.exceptions.Timeout as e:
+        logger.error(f"LLM timeout for user '{agent.user_id}': {e}")
+        error_chunk = {
+            "id": completion_id,
+            "object": "chat.completion.chunk",
+            "created": created,
+            "model": model,
+            "choices": [{
+                "index": 0,
+                "delta": {"content": "抱歉,请求超时了。请稍后重试。"},
+                "finish_reason": "stop"
+            }]
+        }
+        yield f"data: {json.dumps(error_chunk, ensure_ascii=False)}\n\n"
+        yield "data: [DONE]\n\n"
+        return
+    except requests.exceptions.ConnectionError as e:
+        logger.error(f"LLM connection error for user '{agent.user_id}': {e}")
+        error_chunk = {
+            "id": completion_id,
+            "object": "chat.completion.chunk",
+            "created": created,
+            "model": model,
+            "choices": [{
+                "index": 0,
+                "delta": {"content": "网络连接出现问题,请检查网络后重试。"},
+                "finish_reason": "stop"
+            }]
+        }
+        yield f"data: {json.dumps(error_chunk, ensure_ascii=False)}\n\n"
+        yield "data: [DONE]\n\n"
+        return
+    except Exception as e:
+        logger.error(f"LLM request error for user '{agent.user_id}': {type(e).__name__}: {e}")
+        error_chunk = {
+            "id": completion_id,
+            "object": "chat.completion.chunk",
+            "created": created,
+            "model": model,
+            "choices": [{
+                "index": 0,
+                "delta": {"content": f"服务暂时不可用: {str(e)}"},
+                "finish_reason": "stop"
+            }]
+        }
+        yield f"data: {json.dumps(error_chunk, ensure_ascii=False)}\n\n"
+        yield "data: [DONE]\n\n"
+        return
 
+    # Process streaming response
+    try:
         for line in response.iter_lines():
             if line:
                 line = line.decode('utf-8')
@@ -196,7 +237,26 @@ def stream_agent_chat(agent, messages: list, model: str = "hermes") -> Generator
                                 yield f"data: {json.dumps(status_chunk, ensure_ascii=False)}\n\n"
                             break
                     except json.JSONDecodeError:
+                        logger.warning(f"Failed to parse JSON chunk: {data_str[:100]}")
                         continue
+    except Exception as e:
+        logger.error(f"Error processing streaming response for user '{agent.user_id}': {e}")
+        # Yield partial content if any
+        if accumulated_content:
+            partial_chunk = {
+                "id": completion_id,
+                "object": "chat.completion.chunk",
+                "created": created,
+                "model": model,
+                "choices": [{
+                    "index": 0,
+                    "delta": {"content": f"\n\n[响应中断: {str(e)}]"},
+                    "finish_reason": "stop"
+                }]
+            }
+            yield f"data: {json.dumps(partial_chunk, ensure_ascii=False)}\n\n"
+        yield "data: [DONE]\n\n"
+        return
 
     # Phase 2: Handle tool calls if any (non-streaming path as per user request)
     if has_tool_calls and accumulated_tool_calls:
@@ -243,3 +303,8 @@ def stream_agent_chat(agent, messages: list, model: str = "hermes") -> Generator
 
     # Send final [DONE]
     yield "data: [DONE]\n\n"
+
+    # Log the accumulated response for debugging
+    if accumulated_content:
+        logger.info(f"LLM Response | user_id={agent.user_id} | length={len(accumulated_content)}")
+        logger.debug(f"LLM Response Content: {accumulated_content[:500]}{'...' if len(accumulated_content) > 500 else ''}")
