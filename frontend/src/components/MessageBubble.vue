@@ -40,7 +40,14 @@ const renderedContent = computed(() => {
 
     <!-- Content -->
     <div class="bubble-content">
+      <!-- Streaming: plain text for faster updates -->
       <div
+        v-if="isStreaming"
+        class="content-text streaming-content"
+      >{{ message.content }}</div>
+      <!-- Completed: rendered markdown -->
+      <div
+        v-else
         class="content-text"
         v-html="renderedContent"
       ></div>
@@ -171,6 +178,12 @@ const renderedContent = computed(() => {
   background: var(--accent-color);
   border-radius: 50%;
   animation: pulse 1.5s infinite;
+}
+
+/* Streaming content - preserve whitespace and format */
+.message-bubble.streaming .streaming-content {
+  white-space: pre-wrap;
+  word-wrap: break-word;
 }
 
 @keyframes pulse {

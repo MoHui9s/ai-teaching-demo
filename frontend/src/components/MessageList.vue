@@ -1,5 +1,5 @@
 <script setup>
-import { computed, ref } from 'vue'
+import { computed, ref, watch } from 'vue'
 import MessageBubble from './MessageBubble.vue'
 import WelcomeScreen from './WelcomeScreen.vue'
 
@@ -14,6 +14,7 @@ const showStreaming = computed(() => props.isLoading || props.streamingContent)
 
 // Use a fixed timestamp for streaming message to prevent re-renders
 const streamingTimestamp = ref('')
+const streamingKey = ref('')
 
 // Combine messages with streaming content for display
 const displayMessages = computed(() => {
@@ -21,6 +22,7 @@ const displayMessages = computed(() => {
     // Set timestamp only once when streaming starts
     if (!streamingTimestamp.value) {
       streamingTimestamp.value = new Date().toISOString()
+      streamingKey.value = `streaming-${Date.now()}`
     }
     return [
       ...props.messages,
@@ -35,6 +37,7 @@ const displayMessages = computed(() => {
   // Reset timestamp when not streaming
   if (!showStreaming.value) {
     streamingTimestamp.value = ''
+    streamingKey.value = ''
   }
   return props.messages
 })
@@ -49,7 +52,7 @@ const displayMessages = computed(() => {
     <template v-else>
       <MessageBubble
         v-for="(msg, index) in displayMessages"
-        :key="`${msg.role}-${index}`"
+        :key="msg.streaming ? streamingKey : `${msg.role}-${index}`"
         :message="msg"
         :is-streaming="msg.streaming"
       />
