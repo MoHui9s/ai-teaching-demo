@@ -121,9 +121,11 @@ class MemoryStore:
         Never mutated mid-session. Keeps prefix cache stable.
       - memory_entries / user_entries: live state, mutated by tool calls, persisted to disk.
         Tool responses always reflect this live state.
+      - history: conversation history in OpenAI messages format, persisted per user.
     """
 
-    def __init__(self, memory_char_limit: int = 25000, user_char_limit: int = 15000):
+    def __init__(self, user_id: str = "default", memory_char_limit: int = 25000, user_char_limit: int = 15000):
+        self.user_id = user_id
         self.memory_entries: List[str] = []
         self.user_entries: List[str] = []
         self.memory_char_limit = memory_char_limit
@@ -131,13 +133,22 @@ class MemoryStore:
         # Frozen snapshot for system prompt -- set once at load_from_disk()
         self._system_prompt_snapshot: Dict[str, str] = {"memory": "", "user": ""}
 
+    def _ensure_user_dir(self) -> Path:
+        """Ensure the user's memory directory exists."""
+        user_dir = get_memory_dir() / self.user_id
+        user_dir.mkdir(parents=True, exist_ok=True)
+        return user_dir
+
+    def _history_path(self) -> Path:
+        """Return the path to the user's history.json file."""
+        return self._ensure_user_dir() / "history.json"
+
     def load_from_disk(self):
         """Load entries from MEMORY.md and USER.md, capture system prompt snapshot."""
-        mem_dir = get_memory_dir()
-        mem_dir.mkdir(parents=True, exist_ok=True)
+        user_dir = self._ensure_user_dir()
 
-        self.memory_entries = self._read_file(mem_dir / "MEMORY.md")
-        self.user_entries = self._read_file(mem_dir / "USER.md")
+        self.memory_entries = self._read_file(user_dir / "MEMORY.md")
+        self.user_entries = self._read_file(user_dir / "USER.md")
 
         # Deduplicate entries (preserves order, keeps first occurrence)
         self.memory_entries = list(dict.fromkeys(self.memory_entries))
@@ -196,12 +207,12 @@ class MemoryStore:
         # No locking available, proceed without it
         yield
 
-    @staticmethod
-    def _path_for(target: str) -> Path:
-        mem_dir = get_memory_dir()
+    def _path_for(self, target: str) -> Path:
+        """Return the path to MEMORY.md or USER.md for this user."""
+        user_dir = self._ensure_user_dir()
         if target == "user":
-            return mem_dir / "USER.md"
-        return mem_dir / "MEMORY.md"
+            return user_dir / "USER.md"
+        return user_dir / "MEMORY.md"
 
     def _reload_target(self, target: str):
         """Re-read entries from disk into in-memory state.
@@ -214,8 +225,58 @@ class MemoryStore:
 
     def save_to_disk(self, target: str):
         """Persist entries to the appropriate file. Called after every mutation."""
-        get_memory_dir().mkdir(parents=True, exist_ok=True)
+        self._ensure_user_dir()  # Ensure user directory exists
         self._write_file(self._path_for(target), self._entries_for(target))
+
+    def load_history(self) -> List[Dict]:
+        """Load conversation history from history.json.
+
+        Returns:
+            List of messages in OpenAI format (role, content).
+        """
+        path = self._history_path()
+        if not path.exists():
+            return []
+
+        try:
+            content = path.read_text(encoding="utf-8")
+            if content.strip():
+                return json.loads(content)
+        except (json.JSONDecodeError, OSError):
+            pass
+
+        return []
+
+    def save_history(self, messages: List[Dict]) -> None:
+        """Save conversation history to history.json.
+
+        Args:
+            messages: List of messages in OpenAI format.
+        """
+        path = self._history_path()
+        # Use atomic write for safety
+        try:
+            fd, tmp_path = tempfile.mkstemp(
+                dir=str(path.parent), suffix=".tmp", prefix=".history_"
+            )
+            try:
+                with os.fdopen(fd, "w", encoding="utf-8") as f:
+                    json.dump(messages, f, ensure_ascii=False, indent=2)
+                atomic_replace(Path(tmp_path), path)
+            except BaseException:
+                try:
+                    os.unlink(tmp_path)
+                except OSError:
+                    pass
+                raise
+        except (OSError, IOError) as e:
+            raise RuntimeError(f"Failed to write history file {path}: {e}")
+
+    def clear_history(self) -> None:
+        """Clear conversation history by deleting history.json."""
+        path = self._history_path()
+        if path.exists():
+            path.unlink()
 
     def _entries_for(self, target: str) -> List[str]:
         if target == "user":
