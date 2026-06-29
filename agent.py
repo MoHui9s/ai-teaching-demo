@@ -594,11 +594,22 @@ class HermesAgent:
             log_error_trace(request_id, "FollowUpParseError", str(e))
             return f"# 错误：API 响应格式异常 - {str(e)}"
 
-        content_value = message.get("content") or ""
+        # Check if model returned another tool call instead of content
+        if "tool_calls" in message and message["tool_calls"]:
+            logger.warning(f"[{request_id}] Model returned tool_calls after tool result, forcing empty response")
+            content_value = ""
+        else:
+            content_value = message.get("content") or ""
+
         assistant_msg = {"role": "assistant", "content": content_value}
         self.history.append(assistant_msg)
 
         self.memory_store.save_history(self.history)
+
+        # Handle empty response after tool call
+        if not content_value:
+            logger.warning(f"[{request_id}] Empty response after tool call, providing fallback")
+            content_value = "I've updated my memory. How else can I help you?"
 
         logger.info(f"[{request_id}] Tool flow complete")
 
