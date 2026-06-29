@@ -71,14 +71,11 @@ def setup_logging():
         log_level = logging.INFO
         log_format = "%(asctime)s [%(levelname)s] %(name)s: %(message)s"
 
-    # Configure root logger with both file and console handlers
     root_logger = logging.getLogger()
     root_logger.setLevel(log_level)
 
-    # Clear existing handlers
     root_logger.handlers.clear()
 
-    # File handler - detailed logging
     file_handler = logging.FileHandler(log_filename, encoding='utf-8')
     file_handler.setLevel(log_level)
     file_formatter = logging.Formatter(

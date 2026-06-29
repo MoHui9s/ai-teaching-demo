@@ -12,27 +12,23 @@ import sys
 import os
 from pathlib import Path
 
-# Add parent directory to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from agent import HermesAgent, build_system_prompt, chat_url, MODEL, TOOL
-from memory import MemoryStore
+from agent import HermesAgent,  MODEL
 from api.schemas import (
     ChatRequest, ChatCompletion, ErrorResponse
 )
+from api.tts import router as tts_router
 
-# Setup logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("hermes-api")
 
-# Create FastAPI app
 app = FastAPI(
     title="Hermes Agent API",
     description="Multi-user AI agent with persistent memory",
     version="1.0.0"
 )
 
-# Add CORS middleware
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -41,9 +37,9 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Register TTS routes
+app.include_router(tts_router)
 
-# In-memory agent cache (simple version)
-# In production, use proper cache with TTL
 _agents: Dict[str, HermesAgent] = {}
 
 
