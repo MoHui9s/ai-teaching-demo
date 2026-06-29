@@ -54,17 +54,54 @@ async function handleTextClick(event) {
     return
   }
 
-  // 获取点击的文本节点
-  const selection = window.getSelection()
-  if (!selection || selection.rangeCount === 0) return
+  // 获取点击的文本节点和位置
+  let clickNode = event.target
+  let clickOffset = 0
 
-  const range = selection.getRangeAt(0)
-  const clickNode = range.startContainer
-  const clickOffset = range.startOffset
+  // 如果点击的是文本节点
+  if (clickNode.nodeType === Node.TEXT_NODE) {
+    // 计算点击在文本节点中的偏移
+    const range = document.createRange()
+    range.setStart(clickNode, 0)
+    const selection = window.getSelection()
+    if (selection.rangeCount > 0) {
+      const clickRange = selection.getRangeAt(0)
+      if (clickRange.startContainer === clickNode) {
+        clickOffset = clickRange.startOffset
+      }
+    }
+  } else {
+    // 如果点击的是元素节点，找到第一个文本子节点
+    const walker = document.createTreeWalker(
+      event.currentTarget,
+      NodeFilter.SHOW_TEXT,
+      null,
+      false
+    )
+    let textNode = null
+    while (walker.nextNode()) {
+      const node = walker.currentNode
+      if (clickNode.contains(node)) {
+        textNode = node
+        break
+      }
+    }
+    if (textNode) {
+      clickNode = textNode
+      clickOffset = 0
+    } else {
+      // 使用容器的第一个文本节点
+      clickNode = event.currentTarget.firstChild
+      while (clickNode && clickNode.nodeType !== Node.TEXT_NODE) {
+        clickNode = clickNode.firstChild
+      }
+      if (!clickNode) return
+    }
+  }
 
   // 获取容器元素
   const container = event.currentTarget
-  if (!container) return
+  if (!container || !clickNode) return
 
   // 提取英语短语
   const phrase = extractEnglishPhrase(container, clickNode, clickOffset)
@@ -93,6 +130,7 @@ async function handleTextClick(event) {
   }
 
   // 清除选择
+  const selection = window.getSelection()
   selection.removeAllRanges()
 }
 
