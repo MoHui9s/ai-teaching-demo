@@ -32,3 +32,6 @@ Thumbs.db
 # Memory data (user-specific)
 memories/*/
 !memories/.gitkeep
+
+# TTS cache database
+data/*.db
