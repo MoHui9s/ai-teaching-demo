@@ -47,6 +47,7 @@ from audit_log import (
 
 # Configuration
 MAX_CONTEXT_ROUNDS = int(os.getenv("MAX_CONTEXT_ROUNDS", "40"))
+MAX_TOOL_ITERATIONS = int(os.getenv("MAX_TOOL_ITERATIONS", "8"))
 DEBUG = os.getenv("DEBUG", "").lower() in ("1", "true", "yes", "on")
 
 # -----------------------------------------------------------------------------
@@ -362,6 +363,86 @@ class HermesAgent:
             {"role": "system", "content": system_content}
         ] + limited_history
 
+        # Start agent loop
+        return self._agent_loop(request_id, start_time, messages_with_system)
+
+    def _execute_tool_calls(self, request_id: str, tool_calls: list) -> list:
+        """
+        Execute tool calls and return results.
+
+        Args:
+            request_id: Request ID for tracing
+            tool_calls: List of tool call objects from API response
+
+        Returns:
+            List of tool result messages to add to history
+        """
+        results = []
+        for tc in tool_calls:
+            func_name = tc["function"]["name"]
+            func_args = json.loads(tc["function"]["arguments"])
+
+            if func_name == "memory":
+                print(f"\033[35mMemory: {func_args.get('action', 'unknown')} -> {func_args.get('target', 'memory')}\033[0m")
+                result = self.memory_store.handle_tool_call(func_args)
+                print(result)
+
+                # Log tool execution
+                log_tool_execution(
+                    request_id=request_id,
+                    tool_name=func_name,
+                    action=func_args.get('action', 'unknown'),
+                    target=func_args.get('target', 'memory'),
+                    result=result
+                )
+
+                # Audit log: tool call
+                result_success = False
+                try:
+                    result_data = json.loads(result) if isinstance(result, str) else result
+                    result_success = result_data.get("success", False)
+                except:
+                    pass
+
+                audit_log_tool_call(
+                    user_id=self.user_id,
+                    request_id=request_id,
+                    tool_name=func_name,
+                    action=func_args.get('action', 'unknown'),
+                    target=func_args.get('target', 'memory'),
+                    arguments=func_args,
+                    result=result,
+                    success=result_success
+                )
+
+                results.append({
+                    "role": "tool",
+                    "tool_call_id": tc["id"],
+                    "content": result
+                })
+            else:
+                error = json.dumps({"error": f"Unknown tool: {func_name}"})
+                print(f"\033[31m{error}\033[0m")
+                log_error_trace(request_id, f"ToolError:{func_name}", error)
+                results.append({
+                    "role": "tool",
+                    "tool_call_id": tc["id"],
+                    "content": error
+                })
+
+        return results
+
+    def _make_api_call(self, request_id: str, messages: list) -> dict:
+        """
+        Make API call and return response data.
+
+        Args:
+            request_id: Request ID for tracing
+            messages: List of messages to send
+
+        Returns:
+            Dictionary with response data or None if error
+        """
         headers = {
             "Authorization": f"Bearer {api_key}",
             "Content-Type": "application/json"
@@ -369,7 +450,7 @@ class HermesAgent:
 
         payload = {
             "model": MODEL,
-            "messages": messages_with_system,
+            "messages": messages,
             "tools": TOOL,
             "max_tokens": 8000
         }
@@ -397,234 +478,159 @@ class HermesAgent:
             response.raise_for_status()
             data = response.json()
 
+            # Audit log: API response
+            api_duration_ms = (response.elapsed.total_seconds() * 1000) if hasattr(response, 'elapsed') else 0
+            audit_log_api_response(
+                user_id=self.user_id,
+                request_id=request_id,
+                status_code=response.status_code,
+                response_size=len(response.content),
+                has_tool_calls="tool_calls" in data["choices"][0]["message"],
+                finish_reason=data["choices"][0].get("finish_reason", "unknown"),
+                duration_ms=api_duration_ms
+            )
+
+            return data
+
         except requests.exceptions.Timeout:
             log_error_trace(request_id, "Timeout", "Request exceeded 120 seconds")
             audit_log_error(self.user_id, request_id, "Timeout", "Request exceeded 120 seconds")
-            return "# 错误：请求超时（超过120秒）"
+            return {"error": "timeout"}
         except requests.exceptions.HTTPError as e:
             log_error_trace(request_id, "HTTPError", f"Status {e.response.status_code}")
             audit_log_error(self.user_id, request_id, "HTTPError", f"Status {e.response.status_code}")
-            return f"# 错误：HTTP {e.response.status_code} - {e.response.text[:200]}"
+            return {"error": f"http_{e.response.status_code}"}
         except requests.exceptions.RequestException as e:
             log_error_trace(request_id, "RequestException", str(e))
             audit_log_error(self.user_id, request_id, "RequestException", str(e))
-            return f"# 错误：请求失败 - {str(e)}"
+            return {"error": "request_failed"}
         except Exception as e:
             log_error_trace(request_id, "UnknownError", str(e))
             audit_log_error(self.user_id, request_id, "UnknownError", str(e))
-            return f"# 错误：未知错误 - {str(e)}"
+            return {"error": "unknown"}
 
-        # Extract message from response
-        try:
-            message = data["choices"][0]["message"]
-        except (KeyError, IndexError) as e:
-            log_error_trace(request_id, "ResponseParseError", str(e))
-            return f"# 错误：API 响应格式异常 - {str(e)}"
+    def _agent_loop(self, request_id: str, start_time: datetime, messages: list) -> str:
+        """
+        Main agent loop that handles tool calls iteratively.
 
-        # Log API response
-        log_api_response(
-            request_id=request_id,
-            status_code=response.status_code,
-            response_size=len(response.content),
-            has_tool_calls="tool_calls" in message and bool(message["tool_calls"]),
-            finish_reason=data["choices"][0].get("finish_reason", "unknown")
-        )
+        Args:
+            request_id: Request ID for tracing
+            start_time: Start time for duration tracking
+            messages: List of messages to start with
 
-        # Calculate duration for audit log
-        api_duration_ms = (datetime.now() - start_time).total_seconds() * 1000
+        Returns:
+            Final text response from the agent
+        """
+        iteration = 0
+        tool_calls_count = 0
 
-        # Audit log: API response
-        audit_log_api_response(
-            user_id=self.user_id,
-            request_id=request_id,
-            status_code=response.status_code,
-            response_size=len(response.content),
-            has_tool_calls="tool_calls" in message and bool(message["tool_calls"]),
-            finish_reason=data["choices"][0].get("finish_reason", "unknown"),
-            duration_ms=api_duration_ms
-        )
+        while iteration < MAX_TOOL_ITERATIONS:
+            iteration += 1
+            logger.info(f"[{request_id}] Agent loop iteration {iteration}/{MAX_TOOL_ITERATIONS}")
 
-        # Build assistant message
-        content_value = message.get("content")
-        if content_value is None:
-            content_value = ""
-            logger.warning(f"[{request_id}] Model returned null content")
+            # Make API call
+            data = self._make_api_call(request_id, messages)
 
-        assistant_msg = {"role": "assistant", "content": content_value}
+            # Check for API errors
+            if "error" in data:
+                error_msg = f"# 错误：API调用失败 - {data['error']}"
+                logger.error(f"[{request_id}] API error in loop: {data['error']}")
+                return error_msg
 
-        if "tool_calls" in message and message["tool_calls"]:
-            assistant_msg["tool_calls"] = []
-            for tc in message["tool_calls"]:
-                assistant_msg["tool_calls"].append({
-                    "id": tc["id"],
-                    "type": tc["type"],
-                    "function": {
-                        "name": tc["function"]["name"],
-                        "arguments": tc["function"]["arguments"]
-                    }
-                })
+            # Extract message from response
+            try:
+                message = data["choices"][0]["message"]
+            except (KeyError, IndexError) as e:
+                error_msg = f"# 错误：API 响应格式异常 - {str(e)}"
+                log_error_trace(request_id, "ResponseParseError", str(e))
+                return error_msg
 
-        self.history.append(assistant_msg)
-
-        # Handle tool calls
-        if "tool_calls" in message and message["tool_calls"]:
-            results = []
-            for tc in message["tool_calls"]:
-                func_name = tc["function"]["name"]
-                func_args = json.loads(tc["function"]["arguments"])
-
-                if func_name == "memory":
-                    print(f"\033[35mMemory: {func_args.get('action', 'unknown')} -> {func_args.get('target', 'memory')}\033[0m")
-                    result = self.memory_store.handle_tool_call(func_args)
-                    print(result)
-
-                    # Log tool execution
-                    log_tool_execution(
-                        request_id=request_id,
-                        tool_name=func_name,
-                        action=func_args.get('action', 'unknown'),
-                        target=func_args.get('target', 'memory'),
-                        result=result
-                    )
-
-                    # Audit log: tool call
-                    # Parse result to check success
-                    result_success = False
-                    try:
-                        result_data = json.loads(result) if isinstance(result, str) else result
-                        result_success = result_data.get("success", False)
-                    except:
-                        pass
-
-                    audit_log_tool_call(
-                        user_id=self.user_id,
-                        request_id=request_id,
-                        tool_name=func_name,
-                        action=func_args.get('action', 'unknown'),
-                        target=func_args.get('target', 'memory'),
-                        arguments=func_args,
-                        result=result,
-                        success=result_success
-                    )
-
-                    results.append({
-                        "role": "tool",
-                        "tool_call_id": tc["id"],
-                        "content": result
-                    })
-                else:
-                    error = json.dumps({"error": f"Unknown tool: {func_name}"})
-                    print(f"\033[31m{error}\033[0m")
-                    log_error_trace(request_id, f"ToolError:{func_name}", error)
-                    results.append({
-                        "role": "tool",
-                        "tool_call_id": tc["id"],
-                        "content": error
-                    })
-
-            self.history.extend(results)
-            # Continue loop for tool responses
-            return self._continue_after_tools(request_id, start_time)
-
-        # No tool calls, save and return
-        self.memory_store.save_history(self.history)
-
-        response_content = message.get("content") or ""
-        if not response_content:
-            log_error_trace(request_id, "EmptyResponse", "Model returned empty content")
-            return "# 注意：模型返回了空响应，请重试或检查 API 配置"
-
-        # Log completion
-        duration_ms = (datetime.now() - start_time).total_seconds() * 1000
-        log_response_trace(request_id, len(response_content), duration_ms)
-
-        # Audit log: agent response
-        audit_log_agent_response(
-            user_id=self.user_id,
-            request_id=request_id,
-            response=response_content,
-            response_length=len(response_content),
-            total_duration_ms=duration_ms,
-            tool_calls_count=0
-        )
-
-        return response_content
-
-    def _continue_after_tools(self, request_id: str, start_time: datetime) -> str:
-        """Continue conversation after tool calls."""
-        logger.info(f"[{request_id}] Continuing after tool calls")
-
-        system_content = build_system_prompt(self.memory_store)
-        limited_history = limit_history_rounds(self.history, MAX_CONTEXT_ROUNDS)
-        messages_with_system = [
-            {"role": "system", "content": system_content}
-        ] + limited_history
-
-        headers = {
-            "Authorization": f"Bearer {api_key}",
-            "Content-Type": "application/json"
-        }
-
-        payload = {
-            "model": MODEL,
-            "messages": messages_with_system,
-            "tools": TOOL,
-            "max_tokens": 8000
-        }
-
-        # Log follow-up API call
-        log_api_call(
-            request_id=request_id,
-            endpoint=chat_url,
-            payload_size=len(json.dumps(payload)),
-            tool_count=len(TOOL)
-        )
-
-        try:
-            response = requests.post(chat_url, headers=headers, json=payload, timeout=120)
-            response.raise_for_status()
-            data = response.json()
-        except Exception as e:
-            log_error_trace(request_id, "FollowUpError", str(e))
-            return f"# 错误：工具响应后请求失败 - {str(e)}"
-
-        try:
-            message = data["choices"][0]["message"]
-        except (KeyError, IndexError) as e:
-            log_error_trace(request_id, "FollowUpParseError", str(e))
-            return f"# 错误：API 响应格式异常 - {str(e)}"
-
-        # Check if model returned another tool call instead of content
-        if "tool_calls" in message and message["tool_calls"]:
-            logger.warning(f"[{request_id}] Model returned tool_calls after tool result, forcing empty response")
-            content_value = ""
-        else:
+            # Build assistant message
             content_value = message.get("content") or ""
+            assistant_msg = {"role": "assistant", "content": content_value}
 
-        assistant_msg = {"role": "assistant", "content": content_value}
-        self.history.append(assistant_msg)
+            # Check if there are tool calls
+            if "tool_calls" in message and message["tool_calls"]:
+                tool_calls_count += len(message["tool_calls"])
+                logger.info(f"[{request_id}] Found {len(message['tool_calls'])} tool calls")
 
+                # Add tool_calls to assistant message
+                assistant_msg["tool_calls"] = []
+                for tc in message["tool_calls"]:
+                    assistant_msg["tool_calls"].append({
+                        "id": tc["id"],
+                        "type": tc["type"],
+                        "function": {
+                            "name": tc["function"]["name"],
+                            "arguments": tc["function"]["arguments"]
+                        }
+                    })
+
+                # Add assistant message to history
+                self.history.append(assistant_msg)
+
+                # Execute tool calls
+                tool_results = self._execute_tool_calls(request_id, message["tool_calls"])
+
+                # Add tool results to history
+                self.history.extend(tool_results)
+
+                # Update messages for next iteration
+                system_content = build_system_prompt(self.memory_store)
+                limited_history = limit_history_rounds(self.history, MAX_CONTEXT_ROUNDS)
+                messages = [
+                    {"role": "system", "content": system_content}
+                ] + limited_history
+
+                # Continue loop for next iteration
+                continue
+
+            # No tool calls - this is the final response
+            self.history.append(assistant_msg)
+            self.memory_store.save_history(self.history)
+
+            # Handle empty response
+            if not content_value:
+                logger.warning(f"[{request_id}] Empty response received, providing fallback")
+                content_value = "I've processed your request. How else can I help you?"
+
+            # Log completion
+            duration_ms = (datetime.now() - start_time).total_seconds() * 1000
+            log_response_trace(request_id, len(content_value), duration_ms)
+
+            # Audit log: agent response
+            audit_log_agent_response(
+                user_id=self.user_id,
+                request_id=request_id,
+                response=content_value,
+                response_length=len(content_value),
+                total_duration_ms=duration_ms,
+                tool_calls_count=tool_calls_count
+            )
+
+            logger.info(f"[{request_id}] Agent loop completed with text response")
+            return content_value
+
+        # Max iterations reached - force termination
+        logger.warning(f"[{request_id}] Max iterations ({MAX_TOOL_ITERATIONS}) reached, forcing termination")
+
+        # Add a termination message
+        termination_msg = "I've processed your request, but reached the maximum number of operations. How else can I help you?"
+        self.history.append({"role": "assistant", "content": termination_msg})
         self.memory_store.save_history(self.history)
 
-        # Handle empty response after tool call
-        if not content_value:
-            logger.warning(f"[{request_id}] Empty response after tool call, providing fallback")
-            content_value = "I've updated my memory. How else can I help you?"
-
-        logger.info(f"[{request_id}] Tool flow complete")
-
-        # Audit log: agent response after tool calls
+        # Audit log: forced termination
         duration_ms = (datetime.now() - start_time).total_seconds() * 1000
         audit_log_agent_response(
             user_id=self.user_id,
             request_id=request_id,
-            response=content_value,
-            response_length=len(content_value),
+            response=termination_msg,
+            response_length=len(termination_msg),
             total_duration_ms=duration_ms,
-            tool_calls_count=1  # At least one tool was called
+            tool_calls_count=tool_calls_count
         )
 
-        return content_value
+        return termination_msg
 
     def clear_history(self) -> None:
         """Clear conversation history for this user."""
