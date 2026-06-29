@@ -520,6 +520,7 @@ class HermesAgent:
         """
         iteration = 0
         tool_calls_count = 0
+        accumulated_content = ""  # Accumulate content from all iterations
 
         while iteration < MAX_TOOL_ITERATIONS:
             iteration += 1
@@ -551,6 +552,12 @@ class HermesAgent:
                 tool_calls_count += len(message["tool_calls"])
                 logger.info(f"[{request_id}] Found {len(message['tool_calls'])} tool calls")
 
+                # Log if content accompanies tool calls
+                if content_value:
+                    logger.info(f"[{request_id}] Content with tool calls: {content_value[:50]}...")
+                    # Accumulate content from this iteration
+                    accumulated_content += content_value + "\n\n"
+
                 # Add tool_calls to assistant message
                 assistant_msg["tool_calls"] = []
                 for tc in message["tool_calls"]:
@@ -563,7 +570,7 @@ class HermesAgent:
                         }
                     })
 
-                # Add assistant message to history
+                # Add assistant message to history (includes both content and tool_calls)
                 self.history.append(assistant_msg)
 
                 # Execute tool calls
@@ -591,22 +598,25 @@ class HermesAgent:
                 logger.warning(f"[{request_id}] Empty response received, providing fallback")
                 content_value = "I've processed your request. How else can I help you?"
 
+            # Combine accumulated content with final response
+            final_response = accumulated_content + content_value
+
             # Log completion
             duration_ms = (datetime.now() - start_time).total_seconds() * 1000
-            log_response_trace(request_id, len(content_value), duration_ms)
+            log_response_trace(request_id, len(final_response), duration_ms)
 
             # Audit log: agent response
             audit_log_agent_response(
                 user_id=self.user_id,
                 request_id=request_id,
-                response=content_value,
-                response_length=len(content_value),
+                response=final_response,
+                response_length=len(final_response),
                 total_duration_ms=duration_ms,
                 tool_calls_count=tool_calls_count
             )
 
             logger.info(f"[{request_id}] Agent loop completed with text response")
-            return content_value
+            return final_response
 
         # Max iterations reached - force termination
         logger.warning(f"[{request_id}] Max iterations ({MAX_TOOL_ITERATIONS}) reached, forcing termination")
@@ -616,18 +626,21 @@ class HermesAgent:
         self.history.append({"role": "assistant", "content": termination_msg})
         self.memory_store.save_history(self.history)
 
+        # Combine accumulated content with termination message
+        final_response = accumulated_content + termination_msg
+
         # Audit log: forced termination
         duration_ms = (datetime.now() - start_time).total_seconds() * 1000
         audit_log_agent_response(
             user_id=self.user_id,
             request_id=request_id,
-            response=termination_msg,
-            response_length=len(termination_msg),
+            response=final_response,
+            response_length=len(final_response),
             total_duration_ms=duration_ms,
             tool_calls_count=tool_calls_count
         )
 
-        return termination_msg
+        return final_response
 
     def clear_history(self) -> None:
         """Clear conversation history for this user."""
