@@ -5,7 +5,7 @@ import json
 import logging
 from typing import List, Dict, Any
 from fastapi import FastAPI, HTTPException, Request
-from fastapi.responses import StreamingResponse
+from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 
 import sys
@@ -18,7 +18,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 from agent import HermesAgent, build_system_prompt, chat_url, MODEL, TOOL
 from memory import MemoryStore
 from api.schemas import (
-    ChatRequest, ChatCompletion, ChatCompletionChunk, ErrorResponse
+    ChatRequest, ChatCompletion, ErrorResponse
 )
 
 # Setup logging
@@ -71,86 +71,41 @@ async def chat_completions(request: ChatRequest):
     """
     OpenAI-compatible chat completions endpoint.
 
-    Supports both streaming and non-streaming responses.
+    Returns non-streaming response. Streaming simulation should be done on client side.
     """
     try:
         # Get or create agent for user
         agent = get_agent(request.user_id)
 
-        # Convert request messages to simple format
-        # If only one user message, use chat() method
-        # If multiple messages, need to reconstruct context
+        # Get the last user message
+        last_message = request.messages[-1]
+        if last_message.role != "user":
+            raise HTTPException(status_code=400, detail="Last message must be from user")
 
-        if len(request.messages) == 1 and request.messages[0].role == "user":
-            # Simple case: single user message
-            user_prompt = request.messages[0].content
+        # Get response from agent
+        response_text = agent.chat(last_message.content)
 
-            if request.stream:
-                # Streaming response
-                from api.stream import stream_chat_completion
+        completion_id = generate_completion_id()
+        created = int(time.time())
 
-                async def stream_generator():
-                    for chunk in stream_chat_completion(request.messages, request.model):
-                        yield chunk
-
-                return StreamingResponse(
-                    stream_generator(),
-                    media_type="text/event-stream"
-                )
-            else:
-                # Non-streaming response
-                response_text = agent.chat(user_prompt)
-
-                completion_id = generate_completion_id()
-                created = int(time.time())
-
-                return ChatCompletion(
-                    id=completion_id,
-                    created=created,
-                    model=request.model,
-                    choices=[{
-                        "index": 0,
-                        "message": {
-                            "role": "assistant",
-                            "content": response_text
-                        },
-                        "finish_reason": "stop"
-                    }],
-                    usage={
-                        "prompt_tokens": 0,
-                        "completion_tokens": len(response_text),
-                        "total_tokens": len(response_text)
-                    }
-                )
-        else:
-            # Complex case: multiple messages or conversation history
-            # Need to handle this properly
-            # For now, just use the last message
-            last_message = request.messages[-1]
-            if last_message.role == "user":
-                response_text = agent.chat(last_message.content)
-
-                completion_id = generate_completion_id()
-                created = int(time.time())
-
-                return ChatCompletion(
-                    id=completion_id,
-                    created=created,
-                    model=request.model,
-                    choices=[{
-                        "index": 0,
-                        "message": {
-                            "role": "assistant",
-                            "content": response_text
-                        },
-                        "finish_reason": "stop"
-                    }],
-                    usage={
-                        "prompt_tokens": 0,
-                        "completion_tokens": len(response_text),
-                        "total_tokens": len(response_text)
-                    }
-                )
+        return ChatCompletion(
+            id=completion_id,
+            created=created,
+            model=request.model,
+            choices=[{
+                "index": 0,
+                "message": {
+                    "role": "assistant",
+                    "content": response_text
+                },
+                "finish_reason": "stop"
+            }],
+            usage={
+                "prompt_tokens": len(str(last_message.content)),
+                "completion_tokens": len(response_text),
+                "total_tokens": len(str(last_message.content)) + len(response_text)
+            }
+        )
 
     except Exception as e:
         logger.error(f"Error in chat_completions: {e}")
