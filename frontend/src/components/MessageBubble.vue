@@ -1,5 +1,5 @@
 <script setup>
-import { computed, ref } from 'vue'
+import { computed, ref, onUnmounted } from 'vue'
 import { renderMarkdown, formatTime } from '../utils/markdown'
 import { extractEnglishPhrase, isEnglishText } from '../utils/phraseExtractor'
 import { getTTSPlayer } from '../utils/ttsAudioPlayer'
@@ -33,10 +33,9 @@ const renderedContent = computed(() => {
 })
 
 // TTS 相关状态
-const isPlaying = ref(false)
-const highlightedText = ref('')
-const clickEffectActive = ref(false)
-const isProcessing = ref(false) // 防止重复点击
+const isLoading = ref(false) // 加载/闪耀状态
+const isPlaying = ref(false)  // 播放状态
+const highlightedText = ref('') // 高亮的文本
 
 // TTS播放器实例
 const ttsPlayer = getTTSPlayer()
@@ -48,24 +47,11 @@ async function handleTextClick(event) {
   // 只处理assistant消息的点击
   if (!isAssistant.value) return
 
-  // 防止重复点击
-  if (isProcessing.value) return
-
-  // 如果正在播放，停止播放
-  if (isPlaying.value) {
-    ttsPlayer.stop()
-    isPlaying.value = false
-    highlightedText.value = ''
-    clickEffectActive.value = false
-    isProcessing.value = false
+  // 检查播放器是否忙碌
+  if (ttsPlayer.isBusy) {
+    console.log('TTS正在播放中，忽略点击')
     return
   }
-
-  // 标记为处理中，防止重复点击
-  isProcessing.value = true
-
-  // 立即触发点击效果
-  clickEffectActive.value = true
 
   // 获取点击的文本节点和位置
   let clickNode = event.target
@@ -73,7 +59,6 @@ async function handleTextClick(event) {
 
   // 如果点击的是文本节点
   if (clickNode.nodeType === Node.TEXT_NODE) {
-    // 计算点击在文本节点中的偏移
     const range = document.createRange()
     range.setStart(clickNode, 0)
     const selection = window.getSelection()
@@ -124,40 +109,36 @@ async function handleTextClick(event) {
     return
   }
 
+  // 立即显示加载状态（闪耀效果）
+  isLoading.value = true
+  highlightedText.value = phrase
+
   // 播放语音
   try {
-    isPlaying.value = true
-    highlightedText.value = phrase
+    const result = await ttsPlayer.play(phrase)
 
-    await ttsPlayer.play(phrase)
+    // 如果是从缓存加载，延迟一下再隐藏加载状态
+    if (result.cached) {
+      await new Promise(resolve => setTimeout(resolve, 200))
+    }
+
+    isLoading.value = false
+    isPlaying.value = true
 
     // 播放完成后清除状态
-    ttsPlayer.audio.addEventListener('ended', () => {
+    const onEnded = () => {
+      isLoading.value = false
       isPlaying.value = false
       highlightedText.value = ''
-      clickEffectActive.value = false
-      isProcessing.value = false
-    }, { once: true })
-
-    // 如果播放失败或超时，也要清除状态
-    const cleanupTimeout = setTimeout(() => {
-      if (!ttsPlayer.audio.paused) return // 还在播放中
-      isPlaying.value = false
-      highlightedText.value = ''
-      clickEffectActive.value = false
-      isProcessing.value = false
-    }, 5000) // 5秒超时保护
-
-    ttsPlayer.audio.addEventListener('ended', () => {
-      clearTimeout(cleanupTimeout)
-    }, { once: true })
+      ttsPlayer.audio.removeEventListener('ended', onEnded)
+    }
+    ttsPlayer.audio.addEventListener('ended', onEnded)
 
   } catch (error) {
     console.error('TTS播放失败:', error)
+    isLoading.value = false
     isPlaying.value = false
     highlightedText.value = ''
-    clickEffectActive.value = false
-    isProcessing.value = false
   }
 
   // 清除选择
@@ -171,6 +152,14 @@ async function handleTextClick(event) {
 function handleTouchEnd(event) {
   handleTextClick(event)
 }
+
+// 组件卸载时清理
+onUnmounted(() => {
+  // 如果是本组件触发的播放，停止播放
+  if (isPlaying.value && highlightedText.value === ttsPlayer.currentText) {
+    ttsPlayer.stop()
+  }
+})
 </script>
 
 <template>
@@ -191,7 +180,7 @@ function handleTouchEnd(event) {
       <div
         v-else
         class="content-text tts-content"
-        :class="{ 'is-playing': isPlaying, 'click-effect': clickEffectActive }"
+        :class="{ 'is-playing': isPlaying, 'is-loading': isLoading }"
         v-html="renderedContent"
         @click="handleTextClick"
         @touchend="handleTouchEnd"
@@ -379,7 +368,7 @@ function handleTouchEnd(event) {
   cursor: pointer;
   user-select: none;
   -webkit-tap-highlight-color: transparent;
-  transition: background-color var(--transition-fast);
+  transition: all var(--transition-fast);
   position: relative;
   overflow: hidden;
 }
@@ -388,64 +377,51 @@ function handleTouchEnd(event) {
   background-color: var(--bg-secondary);
 }
 
-.message-bubble.assistant .content-text.tts-content.is-playing {
-  background-color: var(--bg-secondary);
-  border-color: var(--accent-color);
+/* 加载中闪耀效果 */
+.message-bubble.assistant .content-text.tts-content.is-loading {
+  animation: shimmer 0.8s ease-out;
 }
 
-/* 点击闪耀效果 */
-.message-bubble.assistant .content-text.tts-content.click-effect {
-  animation: shimmer 0.6s ease-out;
-}
-
-.message-bubble.assistant .content-text.tts-content.click-effect::before {
+.message-bubble.assistant .content-text.tts-content.is-loading::after {
   content: '';
   position: absolute;
   top: 0;
   left: -100%;
-  width: 100%;
+  width: 50%;
   height: 100%;
   background: linear-gradient(
     90deg,
     transparent,
-    rgba(255, 255, 255, 0.4),
+    rgba(99, 102, 241, 0.3),
     transparent
   );
-  animation: shine 0.6s ease-out;
+  animation: shimmer-sweep 0.8s ease-out;
 }
 
 @keyframes shimmer {
   0% {
-    transform: scale(1);
+    box-shadow: 0 0 0 0 rgba(99, 102, 241, 0.4);
   }
   50% {
-    transform: scale(1.02);
-    box-shadow: 0 0 20px rgba(99, 102, 241, 0.3);
+    box-shadow: 0 0 0 8px rgba(99, 102, 241, 0.2);
   }
   100% {
-    transform: scale(1);
+    box-shadow: 0 0 0 16px rgba(99, 102, 241, 0);
   }
 }
 
-@keyframes shine {
+@keyframes shimmer-sweep {
   0% {
-    left: -100%;
+    left: -50%;
   }
   100% {
-    left: 100%;
+    left: 150%;
   }
 }
 
-/* 暗色模式下的点击效果 */
-@media (prefers-color-scheme: dark) {
-  .message-bubble.assistant .content-text.tts-content.click-effect::before {
-    background: linear-gradient(
-      90deg,
-      transparent,
-      rgba(255, 255, 255, 0.2),
-      transparent
-    );
-  }
+.message-bubble.assistant .content-text.tts-content.is-playing {
+  background-color: var(--bg-secondary);
+  border-color: var(--accent-color);
 }
 
 .content-text :deep(ul),

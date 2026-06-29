@@ -13,11 +13,16 @@ class TTSPlayer {
     this.currentText = null
     this.isPlaying = false
     this.isLoading = false
+    this.isBusy = false // 播放中或加载中标记
+
+    // 前端音频缓存：Map<text, {url, duration, voice}>
+    this.audioCache = new Map()
 
     // 事件监听
     this.audio.addEventListener('ended', () => {
       this.isPlaying = false
       this.isLoading = false
+      this.isBusy = false
     })
 
     this.audio.addEventListener('play', () => {
@@ -32,6 +37,7 @@ class TTSPlayer {
       console.error('TTS音频播放错误:', e)
       this.isLoading = false
       this.isPlaying = false
+      this.isBusy = false
     })
   }
 
@@ -39,31 +45,73 @@ class TTSPlayer {
    * 播放文本语音
    * @param {string} text - 要播放的文本
    * @param {string} voice - 声音类型（可选）
+   * @returns {Promise<{url: string, cached: boolean, duration: number}>}
    */
   async play(text, voice = 'en-US-AriaNeural') {
     if (!text || !text.trim()) {
       console.warn('空文本，无法播放')
-      return
+      return { url: null, cached: false, duration: 0 }
     }
 
     text = text.trim()
 
-    // 如果正在播放相同的文本，不做处理
-    if (this.currentText === text && this.isPlaying) {
-      console.log('正在播放相同文本')
-      return
+    // 如果正在忙碌中，忽略新的播放请求
+    if (this.isBusy) {
+      console.log('TTS正在播放中，忽略新请求')
+      return { url: this.currentUrl, cached: true, duration: 0 }
     }
 
-    // 停止当前播放
-    this.stop()
+    // 检查前端缓存
+    const cacheKey = `${text}|${voice}`
+    const cached = this.audioCache.get(cacheKey)
+
+    if (cached) {
+      console.log(`TTS前端缓存命中: "${text.substring(0, 20)}..."`)
+
+      // 先设置忙碌状态，防止stop()重置
+      const wasPlaying = this.isPlaying
+      this.isBusy = true
+      this.isLoading = false
+
+      // 停止当前播放（但保持isBusy状态）
+      if (this.isPlaying) {
+        this.audio.pause()
+        this.audio.currentTime = 0
+        this.isPlaying = false
+      }
+
+      this.currentText = text
+      this.currentUrl = cached.url
+
+      // 播放缓存的音频
+      this.audio.src = cached.url
+      await this.audio.play()
+      this.isPlaying = true
+
+      return { url: cached.url, cached: true, duration: cached.duration }
+    }
+
+    // 没有缓存，需要请求
+    // 先设置忙碌状态
+    this.isBusy = true
+    this.isLoading = true
+
+    // 停止当前播放（但保持isBusy状态）
+    if (this.isPlaying) {
+      this.audio.pause()
+      this.audio.currentTime = 0
+      this.isPlaying = false
+    }
 
     this.currentText = text
-    this.isLoading = true
 
     try {
       // 从后端获取音频URL
-      const url = await this.getAudioUrl(text, voice)
+      const { url, duration } = await this.getAudioUrl(text, voice)
       this.currentUrl = url
+
+      // 存入前端缓存
+      this.audioCache.set(cacheKey, { url, duration, voice })
 
       // 播放音频
       this.audio.src = url
@@ -73,9 +121,12 @@ class TTSPlayer {
       this.isLoading = false
 
       console.log(`播放TTS: "${text.substring(0, 30)}..."`)
+
+      return { url, cached: false, duration }
     } catch (error) {
       console.error('TTS播放失败:', error)
       this.isLoading = false
+      this.isBusy = false
       throw error
     }
   }
@@ -84,7 +135,7 @@ class TTSPlayer {
    * 获取音频URL
    * @param {string} text - 文本
    * @param {string} voice - 声音类型
-   * @returns {Promise<string>} 音频URL
+   * @returns {Promise<{url: string, cached: boolean, duration: number}>} 音频信息
    */
   async getAudioUrl(text, voice) {
     const response = await fetch('/api/tts/audio', {
@@ -102,10 +153,14 @@ class TTSPlayer {
 
     // 如果是缓存命中，记录
     if (data.cached) {
-      console.log('TTS缓存命中')
+      console.log('TTS后端缓存命中')
     }
 
-    return data.audio_url
+    return {
+      url: data.audio_url,
+      cached: data.cached,
+      duration: data.duration
+    }
   }
 
   /**
@@ -118,6 +173,22 @@ class TTSPlayer {
       this.isPlaying = false
     }
     this.isLoading = false
+    this.isBusy = false
+  }
+
+  /**
+   * 清除前端缓存
+   */
+  clearCache() {
+    this.audioCache.clear()
+    console.log('TTS前端缓存已清除')
+  }
+
+  /**
+   * 获取缓存大小
+   */
+  getCacheSize() {
+    return this.audioCache.size
   }
 
   /**

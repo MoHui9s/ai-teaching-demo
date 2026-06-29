@@ -104,18 +104,19 @@ export function isEnglishText(text) {
     return false
   }
 
-  // 统计英语字符数量
+  // 统计英语字母数量（只计算字母，忽略标点）
   const englishChars = (text.match(/[a-zA-Z]/g) || []).length
-  const totalChars = text.replace(/\s/g, '').length
+  const totalNonSpaceChars = text.replace(/\s/g, '').length
 
-  if (totalChars === 0) {
+  if (totalNonSpaceChars === 0) {
     return false
   }
 
-  const ratio = englishChars / totalChars
+  // 至少有30%的字符是英语字母，或者有2个以上英语字母
+  const ratio = englishChars / totalNonSpaceChars
+  const hasEnoughEnglish = englishChars >= 2
 
-  // 超过50%为英语字符则认为是英语
-  return ratio > 0.5
+  return ratio > 0.3 || hasEnoughEnglish
 }
 
 /**
