@@ -14,6 +14,19 @@ const ENGLISH_CHARS = /[a-zA-Z0-9\s.,!?;:'"()-]/
 const WORD_BOUNDARIES = /[^a-zA-Z0-9]/
 
 /**
+ * 检查指定位置是否是 markdown 分割线（---）
+ * @param {string} text - 完整文本
+ * @param {number} pos - 检查位置
+ * @returns {boolean} 是否是分割线
+ */
+function isHorizontalRule(text, pos) {
+  // 检查从 pos 开始是否有连续的3个或更多减号
+  if (pos >= text.length - 2) return false
+  // 检查当前位置及后面2个字符是否都是 '-'
+  return text[pos] === '-' && text[pos + 1] === '-' && text[pos + 2] === '-'
+}
+
+/**
  * 从点击位置提取完整英语短语/句子
  *
  * @param {HTMLElement} element - 被点击的容器元素
@@ -34,13 +47,29 @@ export function extractEnglishPhrase(element, clickNode, offset) {
 
   // 向前扫描：从点击位置向前查找，直到遇到非英语字符或开头
   let start = clickPosition
-  while (start > 0 && ENGLISH_CHARS.test(fullText[start - 1])) {
+  while (start > 0) {
+    // 检查是否遇到 markdown 分割线（在当前位置之前）
+    if (start >= 3 && isHorizontalRule(fullText, start - 3)) {
+      break
+    }
+    // 检查是否是英语字符
+    if (!ENGLISH_CHARS.test(fullText[start - 1])) {
+      break
+    }
     start--
   }
 
   // 向后扫描：从点击位置向后查找，直到遇到非英语字符或结尾
   let end = clickPosition
-  while (end < fullText.length && ENGLISH_CHARS.test(fullText[end])) {
+  while (end < fullText.length) {
+    // 检查是否遇到 markdown 分割线（在当前位置）
+    if (isHorizontalRule(fullText, end)) {
+      break
+    }
+    // 检查是否是英语字符
+    if (!ENGLISH_CHARS.test(fullText[end])) {
+      break
+    }
     end++
   }
 
