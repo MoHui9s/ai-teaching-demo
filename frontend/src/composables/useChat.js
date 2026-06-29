@@ -1,10 +1,8 @@
 import { ref, watch } from 'vue'
-import { chatCompletion, fakeStream } from '../utils/api'
+import { chatCompletion } from '../utils/api'
 
 const MAX_MESSAGE_LENGTH = 8000
 const STREAM_TIMEOUT = 120000 // 120 seconds, matches backend timeout
-const CHUNK_SIZE = 3 // Characters per chunk for fake streaming
-const CHUNK_DELAY = 20 // Delay between chunks in ms
 
 export function useChat(userId) {
   const messages = ref([])
@@ -70,16 +68,9 @@ export function useChat(userId) {
           [...messages.value],
           userId.value,
           controller.value.signal
-        ).then(async (response) => {
-          // Simulate streaming with the complete response
-          await fakeStream(
-            response,
-            (chunk) => {
-              streamingContent.value = chunk
-            },
-            CHUNK_SIZE,
-            CHUNK_DELAY
-          )
+        ).then((response) => {
+          // Display complete response immediately (no fake streaming)
+          streamingContent.value = response
           assistantContent = response
         }),
         timeoutPromise

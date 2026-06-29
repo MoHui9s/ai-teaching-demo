@@ -14,6 +14,43 @@ const ENGLISH_CHARS = /[a-zA-Z0-9\s.,!?;:'"()-]/
 const WORD_BOUNDARIES = /[^a-zA-Z0-9]/
 
 /**
+ * 获取所有 hr 元素在文本流中的位置
+ * 通过遍历文本节点来计算 hr 之前有多少个字符
+ */
+function getHrBoundaries(element) {
+  const boundaries = []
+  let textPosition = 0
+
+  // 遍历所有子节点
+  const walker = document.createTreeWalker(
+    element,
+    NodeFilter.SHOW_ELEMENT | NodeFilter.SHOW_TEXT,
+    null,
+    false
+  )
+
+  let currentNode
+  while ((currentNode = walker.nextNode())) {
+    if (currentNode.nodeType === Node.TEXT_NODE) {
+      // 文本节点：累加长度
+      textPosition += currentNode.textContent.length
+    } else if (currentNode.nodeName === 'HR') {
+      // hr 元素：记录边界位置
+      boundaries.push(textPosition)
+    }
+  }
+
+  return boundaries
+}
+
+/**
+ * 检查指定位置是否跨越了 hr 边界
+ */
+function crossesHrBoundary(position, hrBoundaries) {
+  return hrBoundaries.includes(position)
+}
+
+/**
  * 从点击位置提取完整英语短语/句子
  *
  * @param {HTMLElement} element - 被点击的容器元素
@@ -22,10 +59,17 @@ const WORD_BOUNDARIES = /[^a-zA-Z0-9]/
  * @returns {string} 提取的英语短语
  */
 export function extractEnglishPhrase(element, clickNode, offset) {
-  // 获取容器的纯文本内容
+  if (!clickNode) {
+    return ''
+  }
+
+  // 获取 hr 边界位置
+  const hrBoundaries = getHrBoundaries(element)
+
+  // 获取纯文本内容
   const fullText = element.textContent
 
-  if (!fullText || !clickNode) {
+  if (!fullText) {
     return ''
   }
 
@@ -34,13 +78,29 @@ export function extractEnglishPhrase(element, clickNode, offset) {
 
   // 向前扫描：从点击位置向前查找，直到遇到非英语字符或开头
   let start = clickPosition
-  while (start > 0 && ENGLISH_CHARS.test(fullText[start - 1])) {
+  while (start > 0) {
+    // 检查是否遇到 hr 边界
+    if (crossesHrBoundary(start, hrBoundaries)) {
+      break
+    }
+    // 检查是否是英语字符
+    if (!ENGLISH_CHARS.test(fullText[start - 1])) {
+      break
+    }
     start--
   }
 
   // 向后扫描：从点击位置向后查找，直到遇到非英语字符或结尾
   let end = clickPosition
-  while (end < fullText.length && ENGLISH_CHARS.test(fullText[end])) {
+  while (end < fullText.length) {
+    // 检查是否遇到 hr 边界
+    if (crossesHrBoundary(end, hrBoundaries)) {
+      break
+    }
+    // 检查是否是英语字符
+    if (!ENGLISH_CHARS.test(fullText[end])) {
+      break
+    }
     end++
   }
 

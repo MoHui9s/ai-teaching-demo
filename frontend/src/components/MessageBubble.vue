@@ -53,53 +53,61 @@ async function handleTextClick(event) {
     return
   }
 
-  // 获取点击的文本节点和位置
-  let clickNode = event.target
+  // 获取容器元素
+  const container = event.currentTarget
+  if (!container) return
+
+  // 使用 caretRangeFromPoint 获取精确的点击位置
+  let clickNode = null
   let clickOffset = 0
 
-  // 如果点击的是文本节点
-  if (clickNode.nodeType === Node.TEXT_NODE) {
-    const range = document.createRange()
-    range.setStart(clickNode, 0)
-    const selection = window.getSelection()
-    if (selection.rangeCount > 0) {
-      const clickRange = selection.getRangeAt(0)
-      if (clickRange.startContainer === clickNode) {
-        clickOffset = clickRange.startOffset
-      }
+  // 尝试使用 caretRangeFromPoint 获取精确位置
+  try {
+    const range = document.caretRangeFromPoint(event.clientX, event.clientY)
+    if (range) {
+      clickNode = range.startContainer
+      clickOffset = range.startOffset
     }
-  } else {
+  } catch (e) {
+    console.warn('caretRangeFromPoint 失败:', e)
+  }
+
+  // 如果没有获取到精确位置，回退到原有逻辑
+  if (!clickNode || clickNode.nodeType !== Node.TEXT_NODE) {
+    clickNode = event.target
+    clickOffset = 0
+
     // 如果点击的是元素节点，找到第一个文本子节点
-    const walker = document.createTreeWalker(
-      event.currentTarget,
-      NodeFilter.SHOW_TEXT,
-      null,
-      false
-    )
-    let textNode = null
-    while (walker.nextNode()) {
-      const node = walker.currentNode
-      if (clickNode.contains(node)) {
-        textNode = node
-        break
+    if (clickNode.nodeType !== Node.TEXT_NODE) {
+      const walker = document.createTreeWalker(
+        container,
+        NodeFilter.SHOW_TEXT,
+        null,
+        false
+      )
+      let textNode = null
+      while (walker.nextNode()) {
+        const node = walker.currentNode
+        if (clickNode.contains(node)) {
+          textNode = node
+          break
+        }
       }
-    }
-    if (textNode) {
-      clickNode = textNode
-      clickOffset = 0
-    } else {
-      // 使用容器的第一个文本节点
-      clickNode = event.currentTarget.firstChild
-      while (clickNode && clickNode.nodeType !== Node.TEXT_NODE) {
-        clickNode = clickNode.firstChild
+      if (textNode) {
+        clickNode = textNode
+        clickOffset = 0
+      } else {
+        // 使用容器的第一个文本节点
+        clickNode = container.firstChild
+        while (clickNode && clickNode.nodeType !== Node.TEXT_NODE) {
+          clickNode = clickNode.firstChild
+        }
+        if (!clickNode) return
       }
-      if (!clickNode) return
     }
   }
 
-  // 获取容器元素
-  const container = event.currentTarget
-  if (!container || !clickNode) return
+  if (!clickNode) return
 
   // 提取英语短语
   const phrase = extractEnglishPhrase(container, clickNode, clickOffset)
