@@ -593,13 +593,19 @@ class HermesAgent:
             self.history.append(assistant_msg)
             self.memory_store.save_history(self.history)
 
-            # Handle empty response
+            # Handle empty response - only use fallback if we have NO accumulated content
             if not content_value:
-                logger.warning(f"[{request_id}] Empty response received, providing fallback")
-                content_value = "I've processed your request. How else can I help you?"
-
-            # Combine accumulated content with final response
-            final_response = accumulated_content + content_value
+                if accumulated_content:
+                    # We have accumulated content from tool call iterations, use that
+                    logger.info(f"[{request_id}] Empty final response, using accumulated content ({len(accumulated_content)} chars)")
+                    final_response = accumulated_content
+                else:
+                    # Truly empty response, provide fallback
+                    logger.warning(f"[{request_id}] Empty response received, providing fallback")
+                    final_response = "I've processed your request. How else can I help you?"
+            else:
+                # Combine accumulated content with final response
+                final_response = accumulated_content + content_value
 
             # Log completion
             duration_ms = (datetime.now() - start_time).total_seconds() * 1000
