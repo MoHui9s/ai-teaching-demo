@@ -1,111 +1,96 @@
 /**
- * NPC语音消息解析器
- * 解析 Agent 回复中的 📢 name: content 模式
+ * NPC发言解析工具
+ * 解析Agent回复中的NPC发言格式: 📢 人名: 内容
  */
 
 /**
- * 解析NPC消息模式
- * 匹配格式: 📢 名字: 内容
- * 支持跨行匹配和同一行多个消息
+ * NPC发言正则模式
+ * 匹配格式: 📢 后跟可选空格，然后是人名，然后是英文冒号，然后是发言内容
+ * 支持多行内容，直到遇到下一个 📢 或文本结束
+ */
+const NPC_PATTERN = /📢\s*([^:\n]+):\s*([\s\S]+?)(?=\s*📢|$)/g
+
+/**
+ * 解析Agent回复，提取NPC发言和剩余文本
  *
- * 模式说明:
- * - 📢\s+ - 喇叭emoji + 至少一个空格
- * - ([^:\n]+) - 捕获名字（不含冒号和换行）
- * - :\s* - 冒号 + 可选空格
- * - ([\s\S]+?) - 捕获内容（非贪婪）
- * - (?=\s*📢\s+[^:\n]+:|$) - 前瞻：下一个NPC消息或字符串结尾
+ * @param {string} content - Agent回复内容
+ * @returns {Object} { npcMessages: Array<{name, content}>, remainingText: string }
+ *
+ * @example
+ * const result = parseNpcContent("普通文本 📢 Tom: Hello! 📢 Ben: Hi!")
+ * // 结果:
+ * // {
+ * //   npcMessages: [
+ * //     { name: 'Tom', content: 'Hello!' },
+ * //     { name: 'Ben', content: 'Hi!' }
+ * //   ],
+ * //   remainingText: '普通文本 '
+ * // }
  */
-const NPC_PATTERN = /📢\s+([^:\n]+):\s*([\s\S]+?)(?=\s*📢\s+[^:\n]+:|$)/g
-
-/**
- * 从文本中解析出所有NPC语音消息
- * @param {string} content - Agent回复的完整内容
- * @returns {Array<{name: string, content: string, raw: string}>} NPC消息列表
- */
-export function parseNpcMessages(content) {
-  if (!content || !content.includes('📢')) {
-    return []
+export function parseNpcContent(content) {
+  if (!content || typeof content !== 'string') {
+    return { npcMessages: [], remainingText: content || '' }
   }
 
-  const messages = []
+  const npcMessages = []
+  let remainingText = content
   let match
 
-  // 重置正则的lastIndex
+  // 重置正则索引
   NPC_PATTERN.lastIndex = 0
 
+  // 查找所有NPC发言
   while ((match = NPC_PATTERN.exec(content)) !== null) {
-    const name = match[1].trim()
-    const speechContent = match[2].trim()
+    const [fullMatch, name, npcContent] = match
 
-    if (name && speechContent) {
-      messages.push({
-        name,
-        content: speechContent,
-        raw: match[0] // 原始匹配的文本
+    // 清理人名（去除首尾空格）
+    const cleanName = name.trim()
+    // 清理内容（去除首尾空格和换行）
+    const cleanContent = npcContent.trim()
+
+    if (cleanName && cleanContent) {
+      npcMessages.push({
+        name: cleanName,
+        content: cleanContent
       })
     }
+
+    // 从剩余文本中移除已匹配的部分
+    remainingText = remainingText.replace(fullMatch, '').trim()
   }
 
-  return messages
+  return {
+    npcMessages,
+    remainingText
+  }
 }
 
 /**
- * 检查消息是否包含NPC语音
- * @param {string} content - 消息内容
- * @returns {boolean}
+ * 检查内容是否包含NPC发言
+ *
+ * @param {string} content - 要检查的内容
+ * @returns {boolean} 是否包含NPC发言
  */
-export function hasNpcMessages(content) {
-  return content && content.includes('📢')
+export function hasNpcContent(content) {
+  if (!content || typeof content !== 'string') {
+    return false
+  }
+  NPC_PATTERN.lastIndex = 0
+  return NPC_PATTERN.test(content)
 }
 
 /**
- * 从内容中移除NPC消息部分，返回剩余文本
- * @param {string} content - 原始内容
- * @returns {string} 移除NPC消息后的内容
+ * 为NPC发言创建语音消息对象
+ *
+ * @param {Object} npc - { name, content }
+ * @param {string} timestamp - ISO时间戳
+ * @returns {Object} 语音消息对象
  */
-export function removeNpcMessages(content) {
-  if (!content || !content.includes('📢')) {
-    return content
+export function createVoiceMessage(npc, timestamp = new Date().toISOString()) {
+  return {
+    role: 'npc-voice',
+    npcName: npc.name,
+    content: npc.content,
+    timestamp
   }
-
-  return content.replace(NPC_PATTERN, '').trim()
-}
-
-/**
- * 转换消息结构，将包含NPC的消息转换为多条消息
- * @param {Object} message - 原始消息对象
- * @returns {Array} 转换后的消息列表
- */
-export function expandNpcMessages(message) {
-  if (message.role !== 'assistant' || !hasNpcMessages(message.content)) {
-    return [message]
-  }
-
-  const npcMessages = parseNpcMessages(message.content)
-  const remainingContent = removeNpcMessages(message.content)
-
-  const result = []
-
-  // 添加NPC语音消息
-  for (const npc of npcMessages) {
-    result.push({
-      role: 'npc_voice',
-      npcName: npc.name,
-      content: npc.content,
-      timestamp: message.timestamp,
-      // 保存原始消息引用用于状态管理
-      _originalMessage: message
-    })
-  }
-
-  // 如果有剩余内容，添加为普通assistant消息
-  if (remainingContent) {
-    result.push({
-      role: 'assistant',
-      content: remainingContent,
-      timestamp: message.timestamp
-    })
-  }
-
-  return result
 }
