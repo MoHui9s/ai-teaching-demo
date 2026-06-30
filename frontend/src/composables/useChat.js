@@ -1,5 +1,6 @@
 import { ref, watch } from 'vue'
 import { chatCompletion } from '../utils/api'
+import { parseNpcContent, createVoiceMessage } from '../utils/npcParser'
 
 const MAX_MESSAGE_LENGTH = 8000
 const STREAM_TIMEOUT = 120000 // 120 seconds, matches backend timeout
@@ -79,13 +80,27 @@ export function useChat(userId) {
       // Clear timeout if request completed successfully
       if (timeoutId) clearTimeout(timeoutId)
 
-      // Add assistant message
-      const assistantMsg = {
-        role: 'assistant',
-        content: assistantContent,
-        timestamp: new Date().toISOString()
+      // Parse NPC content from assistant response
+      const { npcMessages, remainingText } = parseNpcContent(assistantContent)
+      const msgTimestamp = new Date().toISOString()
+
+      // Add NPC voice messages first (if any)
+      if (npcMessages.length > 0) {
+        npcMessages.forEach(npc => {
+          messages.value.push(createVoiceMessage(npc, msgTimestamp))
+        })
       }
-      messages.value.push(assistantMsg)
+
+      // Add remaining text as assistant message (if not empty)
+      if (remainingText.trim()) {
+        const assistantMsg = {
+          role: 'assistant',
+          content: remainingText.trim(),
+          timestamp: msgTimestamp
+        }
+        messages.value.push(assistantMsg)
+      }
+
       messageCount.value++
       streamingContent.value = ''
       return true

@@ -1,76 +1,56 @@
 <script setup>
-import { ref, computed, onUnmounted, watch } from 'vue'
+import { ref, onUnmounted } from 'vue'
+import { formatTime } from '../utils/markdown'
 import { getTTSPlayer } from '../utils/ttsAudioPlayer'
 
 const props = defineProps({
-  npcName: {
-    type: String,
+  message: {
+    type: Object,
     required: true
-  },
-  content: {
-    type: String,
-    required: true
-  },
-  timestamp: String,
-  autoPlay: {
-    type: Boolean,
-    default: false
   }
 })
 
-const emit = defineEmits(['play-start', 'play-end', 'play-next'])
-
-// 播放状态
-const isPlaying = ref(false)
+// TTS 相关状态
 const isLoading = ref(false)
-const isPlayed = ref(false) // 是否已播放过
+const isPlaying = ref(false)
 
-// 文本展开状态
-const isExpanded = ref(false)
-
-// TTS播放器
+// TTS播放器实例
 const ttsPlayer = getTTSPlayer()
 
-// 计算第一行文本
-const firstLine = computed(() => {
-  const lines = props.content.split('\n')
-  return lines[0]
-})
+// 格式化时间
+const time = props.message.timestamp ? formatTime(props.message.timestamp) : ''
 
-// 是否有多行
-const hasMoreLines = computed(() => {
-  return props.content.includes('\n')
-})
-
-// 是否显示展开按钮
-const showExpandButton = computed(() => {
-  return hasMoreLines.value && !isExpanded.value
-})
-
-// 播放语音
+/**
+ * 播放NPC语音
+ */
 async function playVoice() {
-  if (isLoading.value) return
-
-  // 如果正在播放，停止播放
-  if (isPlaying.value) {
-    stopVoice()
+  // 检查播放器是否忙碌
+  if (ttsPlayer.isBusy) {
+    console.log('TTS正在播放中，忽略点击')
     return
   }
 
+  const text = props.message.content
+  if (!text) return
+
+  // 显示加载状态
   isLoading.value = true
 
   try {
-    emit('play-start')
-    await ttsPlayer.play(props.content, 'en-US-AriaNeural')
+    const result = await ttsPlayer.play(text)
+
+    // 如果是从缓存加载，延迟一下再隐藏加载状态
+    if (result.cached) {
+      await new Promise(resolve => setTimeout(resolve, 200))
+    }
+
     isLoading.value = false
     isPlaying.value = true
-    isPlayed.value = true
 
-    // 播放结束后清理
+    // 播放完成后清除状态
     const onEnded = () => {
-      isPlaying.value = false
       isLoading.value = false
-      emit('play-end')
+      isPlaying.value = false
       ttsPlayer.audio.removeEventListener('ended', onEnded)
     }
     ttsPlayer.audio.addEventListener('ended', onEnded)
@@ -78,93 +58,58 @@ async function playVoice() {
   } catch (error) {
     console.error('NPC语音播放失败:', error)
     isLoading.value = false
-    emit('play-end')
-  }
-}
-
-// 停止播放
-function stopVoice() {
-  if (isPlaying.value) {
-    ttsPlayer.stop()
     isPlaying.value = false
   }
 }
 
-// 切换文本展开
-function toggleExpand() {
-  isExpanded.value = !isExpanded.value
-}
-
-// 监听自动播放
-watch(() => props.autoPlay, (shouldPlay) => {
-  if (shouldPlay && !isPlayed.value && !isLoading.value && !isPlaying.value) {
-    // 延迟一点播放，让动画效果更好
-    setTimeout(() => {
-      playVoice()
-    }, 100)
-  }
-}, { immediate: true })
+// 组件挂载时自动播放
+playVoice()
 
 // 组件卸载时清理
 onUnmounted(() => {
+  // 如果是本组件触发的播放，停止播放
   if (isPlaying.value) {
-    stopVoice()
+    ttsPlayer.stop()
   }
 })
 </script>
 
 <template>
   <div class="npc-voice-message">
-    <!-- 语音控件行 -->
-    <div
-      class="voice-control"
-      :class="{ playing: isPlaying, loading: isLoading, played: isPlayed }"
-      @click="playVoice"
-    >
-      <div class="voice-icon">
-        📢
-      </div>
-      <div class="npc-name">{{ npcName }}</div>
-
-      <!-- 播放动画 - 类似微信声波 -->
-      <div v-if="isPlaying" class="voice-wave">
-        <span class="wave-bar"></span>
-        <span class="wave-bar"></span>
-        <span class="wave-bar"></span>
-        <span class="wave-bar"></span>
-        <span class="wave-bar"></span>
-      </div>
-
-      <!-- 加载中指示 -->
-      <div v-else-if="isLoading" class="loading-dots">
-        <span></span>
-        <span></span>
-        <span></span>
-      </div>
-
-      <!-- 播放完成指示 -->
-      <div v-else-if="isPlayed" class="play-indicator">
-        ▶
-      </div>
-
-      <!-- 未播放指示 -->
-      <div v-else class="play-indicator">
-        ▶
-      </div>
+    <!-- NPC信息 -->
+    <div class="npc-info">
+      <span class="npc-icon">📢</span>
+      <span class="npc-name">{{ message.npcName }}</span>
     </div>
 
-    <!-- 文本内容 -->
-    <div class="voice-content">
-      <div class="content-text" :class="{ expanded: isExpanded }">
-        {{ isExpanded ? content : firstLine }}
+    <!-- 语音气泡 -->
+    <div
+      class="voice-bubble"
+      :class="{ 'is-loading': isLoading, 'is-playing': isPlaying }"
+      @click="playVoice"
+    >
+      <!-- 播放图标/动画 -->
+      <div class="play-icon">
+        <span v-if="isLoading" class="loading-dots">
+          <span></span>
+          <span></span>
+          <span></span>
+        </span>
+        <span v-else-if="isPlaying" class="playing-waves">
+          <span></span>
+          <span></span>
+          <span></span>
+        </span>
+        <span v-else class="play-triangle">▶</span>
       </div>
-      <button
-        v-if="showExpandButton"
-        class="expand-btn"
-        @click="toggleExpand"
-      >
-        {{ isExpanded ? '收起' : '展开更多' }}
-      </button>
+
+      <!-- 时长指示（模拟） -->
+      <div class="duration">
+        {{ isPlaying ? '播放中...' : isLoading ? '加载中...' : '点击播放' }}
+      </div>
+
+      <!-- 时间戳 -->
+      <span v-if="time" class="timestamp">{{ time }}</span>
     </div>
   </div>
 </template>
@@ -173,112 +118,97 @@ onUnmounted(() => {
 .npc-voice-message {
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  max-width: 85%;
-  animation: slideIn 0.3s ease-out;
+  gap: 4px;
+  align-self: flex-start;
+  max-width: 80%;
+  animation: messageIn 0.3s ease-out;
 }
 
-@keyframes slideIn {
+@keyframes messageIn {
   from {
     opacity: 0;
-    transform: translateX(-10px);
+    transform: translateY(8px);
   }
   to {
     opacity: 1;
-    transform: translateX(0);
+    transform: translateY(0);
   }
 }
 
-/* 语音控件行 */
-.voice-control {
+.npc-info {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 8px 12px;
-  background: linear-gradient(135deg, #f8fafc, #e2e8f0);
-  border: 1px solid #cbd5e1;
-  border-radius: 20px 20px 20px 4px;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  user-select: none;
+  gap: 6px;
+  padding: 0 4px;
 }
 
-.voice-control:hover {
-  background: linear-gradient(135deg, #f1f5f9, #dbeafe);
-  border-color: #94a3b8;
-}
-
-.voice-control:active {
-  transform: scale(0.98);
-}
-
-.voice-control.playing {
-  background: linear-gradient(135deg, #dbeafe, #bfdbfe);
-  border-color: #60a5fa;
-  box-shadow: 0 0 12px rgba(96, 165, 250, 0.4);
-}
-
-.voice-control.loading {
-  background: linear-gradient(135deg, #fef3c7, #fde68a);
-  border-color: #fbbf24;
-}
-
-.voice-icon {
-  font-size: 18px;
-  line-height: 1;
+.npc-icon {
+  font-size: 16px;
 }
 
 .npc-name {
-  font-weight: 600;
-  color: #1e293b;
   font-size: 14px;
+  font-weight: 600;
+  color: var(--text-secondary);
 }
 
-/* 播放动画 - 声波效果 */
-.voice-wave {
+.voice-bubble {
   display: flex;
   align-items: center;
-  gap: 3px;
-  margin-left: auto;
+  gap: 12px;
+  padding: 12px 16px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  border-bottom-left-radius: var(--radius-sm);
+  box-shadow: var(--shadow-sm);
+  cursor: pointer;
+  user-select: none;
+  transition: all var(--transition-fast);
+  min-width: 140px;
 }
 
-.voice-wave .wave-bar {
-  width: 3px;
-  height: 12px;
-  background: #3b82f6;
-  border-radius: 2px;
-  animation: wave 1s ease-in-out infinite;
+.voice-bubble:hover {
+  background: var(--bg-secondary);
 }
 
-.voice-wave .wave-bar:nth-child(1) { animation-delay: 0s; }
-.voice-wave .wave-bar:nth-child(2) { animation-delay: 0.1s; }
-.voice-wave .wave-bar:nth-child(3) { animation-delay: 0.2s; }
-.voice-wave .wave-bar:nth-child(4) { animation-delay: 0.3s; }
-.voice-wave .wave-bar:nth-child(5) { animation-delay: 0.4s; }
-
-@keyframes wave {
-  0%, 100% {
-    height: 4px;
-  }
-  50% {
-    height: 16px;
-  }
+.voice-bubble:active {
+  transform: scale(0.98);
 }
 
-/* 加载动画 */
+.voice-bubble.is-playing {
+  background: var(--bg-secondary);
+  border-color: var(--accent-color);
+}
+
+/* 播放图标 */
+.play-icon {
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+/* 播放三角形 */
+.play-triangle {
+  font-size: 12px;
+  color: var(--accent-color);
+}
+
+/* 加载点动画 */
 .loading-dots {
   display: flex;
-  align-items: center;
   gap: 4px;
-  margin-left: auto;
 }
 
 .loading-dots span {
   width: 6px;
   height: 6px;
   border-radius: 50%;
-  background: #f59e0b;
-  animation: bounce 1.4s infinite ease-in-out;
+  background: var(--accent-color);
+  animation: bounce 1.4s infinite ease-in-out both;
 }
 
 .loading-dots span:nth-child(1) { animation-delay: 0s; }
@@ -296,69 +226,55 @@ onUnmounted(() => {
   }
 }
 
-/* 播放指示 */
-.play-indicator {
-  margin-left: auto;
-  font-size: 12px;
-  color: #64748b;
+/* 播放波形动画 */
+.playing-waves {
+  display: flex;
+  gap: 3px;
+  align-items: center;
+  height: 16px;
 }
 
-.voice-control.playing .play-indicator,
-.voice-control.loading .play-indicator {
-  display: none;
+.playing-waves span {
+  width: 3px;
+  background: var(--accent-color);
+  border-radius: 2px;
+  animation: wave 0.8s ease-in-out infinite;
 }
 
-/* 文本内容 */
-.voice-content {
-  padding-left: 12px;
+.playing-waves span:nth-child(1) { animation-delay: 0s; height: 8px; }
+.playing-waves span:nth-child(2) { animation-delay: 0.1s; height: 12px; }
+.playing-waves span:nth-child(3) { animation-delay: 0.2s; height: 16px; }
+
+@keyframes wave {
+  0%, 100% {
+    transform: scaleY(0.5);
+  }
+  50% {
+    transform: scaleY(1);
+  }
 }
 
-.content-text {
-  color: #475569;
-  font-size: 14px;
-  line-height: 1.6;
-  word-wrap: break-word;
-  overflow-wrap: break-word;
-
-  /* 默认折叠：只显示一行 */
-  display: -webkit-box;
-  -webkit-line-clamp: 1;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
+/* 时长文字 */
+.duration {
+  flex: 1;
+  font-size: 13px;
+  color: var(--text-secondary);
 }
 
-.content-text.expanded {
-  display: block;
-  -webkit-line-clamp: unset;
+.timestamp {
+  font-size: 11px;
+  color: var(--text-muted);
+  padding: 0 4px;
 }
 
-.expand-btn {
-  margin-top: 4px;
-  padding: 4px 8px;
-  font-size: 12px;
-  color: #3b82f6;
-  background: none;
-  border: none;
-  cursor: pointer;
-  transition: color 0.2s;
-}
-
-.expand-btn:hover {
-  color: #2563eb;
-}
-
-/* 移动端适配 */
 @media (max-width: 480px) {
   .npc-voice-message {
     max-width: 90%;
   }
 
-  .voice-control {
-    padding: 6px 10px;
-  }
-
-  .npc-name {
-    font-size: 13px;
+  .voice-bubble {
+    min-width: 120px;
+    padding: 10px 14px;
   }
 }
 </style>
