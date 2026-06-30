@@ -1,8 +1,9 @@
 <script setup>
-import { computed, ref, watch } from 'vue'
+import { computed, ref } from 'vue'
 import MessageBubble from './MessageBubble.vue'
 import NpcVoiceMessage from './NpcVoiceMessage.vue'
 import WelcomeScreen from './WelcomeScreen.vue'
+import { hasNpcContent, parseNpcContent } from '../utils/npcParser'
 
 const props = defineProps({
   messages: Array,
@@ -16,6 +17,17 @@ const showStreaming = computed(() => props.isLoading || props.streamingContent)
 // Use a fixed timestamp for streaming message to prevent re-renders
 const streamingTimestamp = ref('')
 const streamingKey = ref('')
+
+/**
+ * 获取消息中的 NPC 列表（如果有）
+ */
+function getNpcMessages(message) {
+  if (message.role !== 'assistant' || !hasNpcContent(message.content)) {
+    return []
+  }
+  const { npcMessages } = parseNpcContent(message.content)
+  return npcMessages
+}
 
 // Combine messages with streaming content for display
 const displayMessages = computed(() => {
@@ -52,14 +64,21 @@ const displayMessages = computed(() => {
     <!-- Messages -->
     <template v-else>
       <template v-for="(msg, index) in displayMessages" :key="msg.streaming ? streamingKey : `${msg.role}-${index}`">
-        <!-- NPC Voice Message -->
-        <NpcVoiceMessage
-          v-if="msg.role === 'npc-voice'"
-          :message="msg"
-        />
-        <!-- Regular Message Bubble -->
+        <!-- NPC Voice Controls (displayed before the original message) -->
+        <template v-if="msg.role === 'assistant' && !msg.streaming">
+          <NpcVoiceMessage
+            v-for="(npc, npcIndex) in getNpcMessages(msg)"
+            :key="`npc-${index}-${npcIndex}`"
+            :message="{
+              npcName: npc.name,
+              content: npc.content,
+              timestamp: msg.timestamp
+            }"
+          />
+        </template>
+
+        <!-- Original Message Bubble (always show full content) -->
         <MessageBubble
-          v-else
           :message="msg"
           :is-streaming="msg.streaming"
         />
