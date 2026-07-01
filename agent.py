@@ -369,7 +369,20 @@ class HermesAgent:
         results = []
         for tc in tool_calls:
             func_name = tc["function"]["name"]
-            func_args = json.loads(tc["function"]["arguments"])
+            raw_args = tc["function"]["arguments"]
+            if isinstance(raw_args, dict):
+                func_args = raw_args
+            else:
+                try:
+                    func_args = json.loads(raw_args)
+                except (json.JSONDecodeError, TypeError) as e:
+                    logger.error(f"[{request_id}] Failed to parse tool arguments: {e}, raw={raw_args!r}")
+                    results.append({
+                        "role": "tool",
+                        "tool_call_id": tc["id"],
+                        "content": json.dumps({"error": f"Parse error: {str(e)}"})
+                    })
+                    continue
 
             if func_name == "memory":
                 print(f"\033[35mMemory: {func_args.get('action', 'unknown')} -> {func_args.get('target', 'memory')}\033[0m")
