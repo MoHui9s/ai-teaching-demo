@@ -2,54 +2,55 @@
 <html lang="zh-CN">
   <head>
     <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="description" content="Hermes AI Agent - Your Personal AI Assistant with Persistent Memory" />
+    <meta name="theme-color" content="#6366f1" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Hermes Agent Chat</title>
-    <script type="module" crossorigin src="/assets/index-B6Gsmx8X.js"></script>
+    <title>Hermes AI</title>
+    <style>
+      /* Loading styles */
+      #app-loading {
+        position: fixed;
+        inset: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: #f8fafc;
+        z-index: 9999;
+        transition: opacity 0.3s ease;
+      }
+      #app-loading.loaded {
+        opacity: 0;
+        pointer-events: none;
+      }
+      .loading-spinner {
+        width: 40px;
+        height: 40px;
+        border: 3px solid #e2e8f0;
+        border-top-color: #6366f1;
+        border-radius: 50%;
+        animation: spin 1s linear infinite;
+      }
+      @keyframes spin {
+        to { transform: rotate(360deg); }
+      }
+      @media (prefers-color-scheme: dark) {
+        #app-loading {
+          background: #0f172a;
+        }
+        .loading-spinner {
+          border-color: #334155;
+          border-top-color: #818cf8;
+        }
+      }
+    </style>
+    <script type="module" crossorigin src="/assets/index-Bb-i_YGp.js"></script>
+    <link rel="stylesheet" crossorigin href="/assets/index-BUj78Fww.css">
   </head>
   <body>
-    <div id="app">
-      <aside id="sidebar">
-        <div id="user-controls">
-          <label for="user-id">Current User</label>
-          <input type="text" id="user-id" placeholder="Enter user ID" value="default" />
-          <button id="switch-user">Switch</button>
-          <button id="new-user">+ New User</button>
-        </div>
-        <div id="user-list"></div>
-        <div id="sidebar-actions">
-          <button id="load-history"><span class="btn-icon">&#8635;</span> Load History</button>
-          <button id="clear-history"><span class="btn-icon">&#128465;</span> Clear History</button>
-          <button id="dark-mode"><span class="btn-icon">&#127769;</span> Dark Mode</button>
-        </div>
-      </aside>
-      <main id="chat-area">
-        <div id="messages">
-          <div class="welcome-screen" id="welcome-screen">
-            <div class="welcome-icon">&#9889;</div>
-            <h1>Welcome to Hermes</h1>
-            <h2>Your Personal AI Assistant</h2>
-            <p>Start a conversation below. Hermes remembers your context and can perform complex tasks with persistent memory.</p>
-            <div class="welcome-features">
-              <span class="welcome-feature">Persistent Memory</span>
-              <span class="welcome-feature">Multi-User</span>
-              <span class="welcome-feature">Markdown</span>
-              <span class="welcome-feature">Code Highlighting</span>
-            </div>
-          </div>
-        </div>
-        <div id="input-area">
-          <div class="input-wrapper">
-            <textarea id="message-input" placeholder="Type a message... (Enter to send, Shift+Enter for new line)" rows="2"></textarea>
-            <div id="input-buttons">
-              <span class="char-count" id="char-count"></span>
-              <button id="stop-generation" style="display:none">Stop</button>
-              <button id="send-message">Send</button>
-            </div>
-          </div>
-        </div>
-      </main>
-    </div>
-    <div id="toast-container"></div>
+    <div id="app-loading"><div class="loading-spinner"></div></div>
+    <div id="app"></div>
   </body>
 </html>
