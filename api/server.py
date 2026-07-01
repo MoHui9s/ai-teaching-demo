@@ -1,5 +1,7 @@
 """FastAPI server for Hermes Agent."""
 
+VERSION = "1.1.0"
+
 import time
 import json
 import logging
@@ -69,7 +71,7 @@ def generate_completion_id() -> str:
 @app.get("/health")
 async def health_check():
     """Health check endpoint."""
-    return {"status": "healthy", "model": MODEL}
+    return {"status": "healthy", "version": VERSION, "model": MODEL}
 
 
 @app.post("/v1/chat/completions")
