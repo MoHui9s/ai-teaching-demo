@@ -13,7 +13,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from database.user_db import get_user_db
+from database.user_db_sqlite import get_user_db
 
 logger = logging.getLogger("hermes-auth")
 

@@ -36,3 +36,6 @@ memories/*/
 # Runtime data
 data/*.db
 data/*.json
+data/*.backup
+data/leveldb/
+data/*.leveldb/

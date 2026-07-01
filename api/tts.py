@@ -1,6 +1,7 @@
 """TTS API routes for Hermes Agent."""
 
 import logging
+import hashlib
 from fastapi import APIRouter, HTTPException, Response
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
@@ -12,7 +13,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from services.edge_tts_service import get_tts_service
-from services.cache_service import get_cache_service
+from services.cache_service_leveldb import get_cache_service
 
 logger = logging.getLogger("hermes-tts")
 
@@ -67,7 +68,6 @@ async def get_tts_audio(request: TTSRequest):
     cache_service = get_cache_service()
 
     # 生成缓存键（用于URL）
-    import hashlib
     cache_key = hashlib.md5(f"{request.text}|{request.voice}".encode()).hexdigest()
 
     # 检查缓存
@@ -118,31 +118,18 @@ async def get_audio_file(cache_key: str):
     """
     cache_service = get_cache_service()
 
-    # 通过cache_key查找（需要遍历，实际可用时优化）
-    # 这里简化处理，直接用sqlite查询
-    import sqlite3
-    from pathlib import Path
+    # cache_key 就是 MD5(text|voice)，也是 LevelDB 中的键
+    # 直接用它来查找
+    key_bytes = cache_key.encode('utf-8')
 
-    db_path = Path("./data/tts_cache.db")
-    if not db_path.exists():
+    # 获取音频数据
+    audio_data = cache_service.db.get(key_bytes)
+    if audio_data is None:
         raise HTTPException(status_code=404, detail="音频未找到")
 
-    conn = sqlite3.connect(str(db_path))
-    conn.row_factory = sqlite3.Row
-    cursor = conn.cursor()
-
-    cursor.execute("""
-        SELECT audio_data FROM tts_cache
-        WHERE cache_key = ?
-    """, (cache_key,))
-
-    row = cursor.fetchone()
-    conn.close()
-
-    if not row:
-        raise HTTPException(status_code=404, detail="音频未找到")
-
-    audio_data = bytes(row['audio_data'])
+    # 获取元数据
+    meta_key = cache_service.META_PREFIX + key_bytes
+    meta_bytes = cache_service.db.get(meta_key)
 
     return Response(
         content=audio_data,
