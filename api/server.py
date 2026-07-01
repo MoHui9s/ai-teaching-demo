@@ -1,6 +1,6 @@
 """FastAPI server for Hermes Agent."""
 
-VERSION = "1.1.0"
+VERSION = "1.2.0"
 
 import time
 import json
