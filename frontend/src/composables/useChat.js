@@ -1,5 +1,5 @@
 import { ref, watch } from 'vue'
-import { streamChat } from '../utils/api'
+import { chatCompletion } from '../utils/api'
 
 const MAX_MESSAGE_LENGTH = 8000
 const STREAM_TIMEOUT = 120000 // 120 seconds, matches backend timeout
@@ -61,32 +61,32 @@ export function useChat(userId) {
     })
 
     try {
-      // Stream the response with timeout
+      // Get complete response with timeout
       let assistantContent = ''
       await Promise.race([
-        streamChat(
+        chatCompletion(
           [...messages.value],
           userId.value,
-          (chunk) => {
-            streamingContent.value = chunk
-          },
           controller.value.signal
-        ),
+        ).then((response) => {
+          // Display complete response immediately (no fake streaming)
+          streamingContent.value = response
+          assistantContent = response
+        }),
         timeoutPromise
       ])
 
       // Clear timeout if request completed successfully
       if (timeoutId) clearTimeout(timeoutId)
 
-      assistantContent = streamingContent.value
-
-      // Add assistant message
+      // Add complete assistant message (NPC parsing is handled by MessageList.vue for display)
       const assistantMsg = {
         role: 'assistant',
         content: assistantContent,
         timestamp: new Date().toISOString()
       }
       messages.value.push(assistantMsg)
+
       messageCount.value++
       streamingContent.value = ''
       return true

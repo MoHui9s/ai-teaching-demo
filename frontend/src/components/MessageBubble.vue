@@ -1,6 +1,8 @@
 <script setup>
-import { computed } from 'vue'
+import { computed, ref, onUnmounted } from 'vue'
 import { renderMarkdown, formatTime } from '../utils/markdown'
+import { extractEnglishPhrase, isEnglishText } from '../utils/phraseExtractor'
+import { getTTSPlayer } from '../utils/ttsAudioPlayer'
 
 const props = defineProps({
   message: {
@@ -29,10 +31,147 @@ const renderedContent = computed(() => {
   if (isError.value) return props.message.content
   return renderMarkdown(props.message.content || '')
 })
+
+// TTS 相关状态
+const isLoading = ref(false) // 加载/闪耀状态
+const isPlaying = ref(false)  // 播放状态
+const highlightedText = ref('') // 高亮的文本
+
+// TTS播放器实例
+const ttsPlayer = getTTSPlayer()
+
+/**
+ * 处理文本点击事件
+ */
+async function handleTextClick(event) {
+  // 只处理assistant消息的点击
+  if (!isAssistant.value) return
+
+  // 检查播放器是否忙碌
+  if (ttsPlayer.isBusy) {
+    console.log('TTS正在播放中，忽略点击')
+    return
+  }
+
+  // 获取容器元素
+  const container = event.currentTarget
+  if (!container) return
+
+  // 使用 caretRangeFromPoint 获取精确的点击位置
+  let clickNode = null
+  let clickOffset = 0
+
+  // 尝试使用 caretRangeFromPoint 获取精确位置
+  try {
+    const range = document.caretRangeFromPoint(event.clientX, event.clientY)
+    if (range) {
+      clickNode = range.startContainer
+      clickOffset = range.startOffset
+    }
+  } catch (e) {
+    console.warn('caretRangeFromPoint 失败:', e)
+  }
+
+  // 如果没有获取到精确位置，回退到原有逻辑
+  if (!clickNode || clickNode.nodeType !== Node.TEXT_NODE) {
+    clickNode = event.target
+    clickOffset = 0
+
+    // 如果点击的是元素节点，找到第一个文本子节点
+    if (clickNode.nodeType !== Node.TEXT_NODE) {
+      const walker = document.createTreeWalker(
+        container,
+        NodeFilter.SHOW_TEXT,
+        null,
+        false
+      )
+      let textNode = null
+      while (walker.nextNode()) {
+        const node = walker.currentNode
+        if (clickNode.contains(node)) {
+          textNode = node
+          break
+        }
+      }
+      if (textNode) {
+        clickNode = textNode
+        clickOffset = 0
+      } else {
+        // 使用容器的第一个文本节点
+        clickNode = container.firstChild
+        while (clickNode && clickNode.nodeType !== Node.TEXT_NODE) {
+          clickNode = clickNode.firstChild
+        }
+        if (!clickNode) return
+      }
+    }
+  }
+
+  if (!clickNode) return
+
+  // 提取英语短语
+  const phrase = extractEnglishPhrase(container, clickNode, clickOffset)
+
+  // 验证是否为英语文本
+  if (!phrase || !isEnglishText(phrase)) {
+    return
+  }
+
+  // 立即显示加载状态（闪耀效果）
+  isLoading.value = true
+  highlightedText.value = phrase
+
+  // 播放语音
+  try {
+    const result = await ttsPlayer.play(phrase)
+
+    // 如果是从缓存加载，延迟一下再隐藏加载状态
+    if (result.cached) {
+      await new Promise(resolve => setTimeout(resolve, 200))
+    }
+
+    isLoading.value = false
+    isPlaying.value = true
+
+    // 播放完成后清除状态
+    const onEnded = () => {
+      isLoading.value = false
+      isPlaying.value = false
+      highlightedText.value = ''
+      ttsPlayer.audio.removeEventListener('ended', onEnded)
+    }
+    ttsPlayer.audio.addEventListener('ended', onEnded)
+
+  } catch (error) {
+    console.error('TTS播放失败:', error)
+    isLoading.value = false
+    isPlaying.value = false
+    highlightedText.value = ''
+  }
+
+  // 清除选择
+  const selection = window.getSelection()
+  selection.removeAllRanges()
+}
+
+/**
+ * 处理触摸事件（移动端）
+ */
+function handleTouchEnd(event) {
+  handleTextClick(event)
+}
+
+// 组件卸载时清理
+onUnmounted(() => {
+  // 如果是本组件触发的播放，停止播放
+  if (isPlaying.value && highlightedText.value === ttsPlayer.currentText) {
+    ttsPlayer.stop()
+  }
+})
 </script>
 
 <template>
-  <div :class="['message-bubble', message.role, { streaming: isStreaming, error: isError }]">
+  <div :class="['message-bubble', message.role, { streaming: isStreaming, error: isError, 'tts-enabled': isAssistant }]">
     <!-- Avatar -->
     <div class="avatar">
       {{ avatar }}
@@ -45,11 +184,14 @@ const renderedContent = computed(() => {
         v-if="isStreaming"
         class="content-text streaming-content"
       >{{ message.content }}</div>
-      <!-- Completed: rendered markdown -->
+      <!-- Completed: rendered markdown with TTS click support -->
       <div
         v-else
-        class="content-text"
+        class="content-text tts-content"
+        :class="{ 'is-playing': isPlaying, 'is-loading': isLoading }"
         v-html="renderedContent"
+        @click="handleTextClick"
+        @touchend="handleTouchEnd"
       ></div>
 
       <!-- Timestamp -->
@@ -227,6 +369,67 @@ const renderedContent = computed(() => {
 
 .content-text :deep(p:last-child) {
   margin-bottom: 0;
+}
+
+/* TTS 点击交互样式 */
+.message-bubble.assistant .content-text.tts-content {
+  cursor: pointer;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  transition: all var(--transition-fast);
+  position: relative;
+  overflow: hidden;
+}
+
+.message-bubble.assistant .content-text.tts-content:active {
+  background-color: var(--bg-secondary);
+}
+
+/* 加载中闪耀效果 */
+.message-bubble.assistant .content-text.tts-content.is-loading {
+  animation: shimmer 0.8s ease-out;
+}
+
+.message-bubble.assistant .content-text.tts-content.is-loading::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 50%;
+  height: 100%;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(99, 102, 241, 0.3),
+    transparent
+  );
+  animation: shimmer-sweep 0.8s ease-out;
+}
+
+@keyframes shimmer {
+  0% {
+    box-shadow: 0 0 0 0 rgba(99, 102, 241, 0.4);
+  }
+  50% {
+    box-shadow: 0 0 0 8px rgba(99, 102, 241, 0.2);
+  }
+  100% {
+    box-shadow: 0 0 0 16px rgba(99, 102, 241, 0);
+  }
+}
+
+@keyframes shimmer-sweep {
+  0% {
+    left: -50%;
+  }
+  100% {
+    left: 150%;
+  }
+}
+
+.message-bubble.assistant .content-text.tts-content.is-playing {
+  background-color: var(--bg-secondary);
+  border-color: var(--accent-color);
 }
 
 .content-text :deep(ul),

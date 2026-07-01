@@ -1,67 +1,37 @@
 # Python
 __pycache__/
-*.py[cod]
-*$py.class
-*.so
-.Python
-build/
-develop-eggs/
-dist/
-downloads/
-eggs/
-.eggs/
-lib/
-lib64/
-parts/
-sdist/
-var/
-wheels/
+*.pyc
+*.pyo
 *.egg-info/
-.installed.cfg
 *.egg
-
-# Virtual environments
+.pytest_cache/
+.coverage
+.venv
 venv/
 ENV/
 env/
-.venv
 
-# uv
-uv.lock
-
-# IDE
-.vscode/
+# IDEs
 .idea/
+.vscode/
 *.swp
 *.swo
-*~
 
 # Logs
 logs/
 *.log
 
-# Environment variables
+# Environment
 .env
 .env.local
-
-# Test files
-test_result.txt
-screenshot_*.png
-
-# Memories (user data - may contain sensitive info)
-# memories/
-
-# Temporary files
-*.tmp
-*.bak
-quick_test.py
-run_test.py
-
-# API test scripts
-test_api.bat
-test_api.ps1
-test_mem.bat
 
 # OS
 .DS_Store
 Thumbs.db
+
+# Memory data (user-specific)
+memories/*/
+!memories/.gitkeep
+
+# TTS cache database
+data/*.db

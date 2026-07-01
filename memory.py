@@ -529,25 +529,24 @@ class MemoryStore:
 MEMORY_TOOL_SCHEMA = {
     "name": "memory",
     "description": (
-        "Save durable information to persistent memory that survives across sessions. "
-        "Memory is injected into future turns, so keep it compact and focused on facts "
-        "that will still matter later.\n\n"
-        "WHEN TO SAVE (do this proactively, don't wait to be asked):\n"
-        "- User corrects you or says 'remember this' / 'don't do that again'\n"
-        "- User shares a preference, habit, or personal detail (name, role, timezone, coding style)\n"
-        "- You discover something about the environment (OS, installed tools, project structure)\n"
-        "- You learn a convention, API quirk, or workflow specific to this user's setup\n"
-        "- You identify a stable fact that will be useful again in future sessions\n\n"
-        "PRIORITY: User preferences and corrections > environment facts > procedural knowledge. "
-        "The most valuable memory prevents the user from having to repeat themselves.\n\n"
-        "Do NOT save task progress, session outcomes, completed-work logs, or temporary TODO "
-        "state to memory; keep memory for stable facts that matter across sessions.\n\n"
-        "TWO TARGETS:\n"
-        "- 'user': who the user is -- name, role, preferences, communication style, pet peeves\n"
-        "- 'memory': your notes -- environment facts, project conventions, tool quirks, lessons learned\n\n"
-        "ACTIONS: add (new entry), replace (update existing -- old_text identifies it), "
-        "remove (delete -- old_text identifies it).\n\n"
-        "SKIP: trivial/obvious info, things easily re-discovered, raw data dumps, and temporary task state."
+        "将持久化信息保存到跨会话存活的记忆中。记忆会被注入到未来的对话中，"
+        "因此保持简洁并专注于后续仍然重要的事实。\n\n"
+        "何时保存（主动执行，不要等待被询问）：\n"
+        "- 用户纠正你或说'记住这个' / '不要再这样做'\n"
+        "- 用户分享偏好、习惯或个人细节（姓名、角色、时区、编码风格）\n"
+        "- 你发现了关于环境的信息（操作系统、已安装工具、项目结构）\n"
+        "- 你学习了特定于用户设置的约定、API 特性或工作流程\n"
+        "- 你识别出在未来的会话中再次有用的稳定事实\n\n"
+        "优先级：用户偏好和纠正 > 环境事实 > 过程性知识。"
+        "最有价值的记忆是避免用户重复自己。\n\n"
+        "不要将任务进度、会话结果、已完成的工作日志或临时待办事项"
+        "状态保存到记忆中；将记忆保留用于跨会话重要的事实。\n\n"
+        "两个目标：\n"
+        "- 'user'：用户是谁——姓名、角色、偏好、沟通风格、禁忌\n"
+        "- 'memory'：你的笔记——用于跟踪教学进度，教学计划，学生水平，知识薄弱点，根据记忆曲线维护教学和复习节奏\n\n"
+        "操作：add（添加新条目）、replace（更新现有条目——old_text 标识它）、"
+        "remove（删除——old_text 标识它）。\n\n"
+        "跳过：琐碎/明显的信息、易于重新发现的内容、原始数据转储和临时任务状态。"
     ),
     "parameters": {
         "type": "object",
@@ -555,20 +554,20 @@ MEMORY_TOOL_SCHEMA = {
             "action": {
                 "type": "string",
                 "enum": ["add", "replace", "remove"],
-                "description": "The action to perform."
+                "description": "要执行的操作。"
             },
             "target": {
                 "type": "string",
                 "enum": ["memory", "user"],
-                "description": "Which memory store: 'memory' for personal notes, 'user' for user profile."
+                "description": "记忆存储类型：'memory' 用于个人笔记，'user' 用于用户档案。"
             },
             "content": {
                 "type": "string",
-                "description": "The entry content. Required for 'add' and 'replace'."
+                "description": "条目内容。'add' 和 'replace' 操作必需。"
             },
             "old_text": {
                 "type": "string",
-                "description": "Short unique substring identifying the entry to replace or remove."
+                "description": "标识要替换或删除的条目的短唯一子字符串。"
             },
         },
         "required": ["action", "target"],

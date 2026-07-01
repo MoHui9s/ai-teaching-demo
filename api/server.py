@@ -3,41 +3,33 @@
 import time
 import json
 import logging
+from typing import List, Dict, Any
+from fastapi import FastAPI, HTTPException, Request
+from fastapi.responses import JSONResponse
+from fastapi.middleware.cors import CORSMiddleware
+
 import sys
 import os
 from typing import List, Dict, Any
 from pathlib import Path
 
-from fastapi import FastAPI, HTTPException, Request
-from fastapi.responses import StreamingResponse, FileResponse
-from fastapi.staticfiles import StaticFiles
-from fastapi.middleware.cors import CORSMiddleware
-
-# Add parent directory to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from agent import HermesAgent, build_system_prompt, chat_url, MODEL, TOOL
-from memory import MemoryStore
+from agent import HermesAgent,  MODEL
 from api.schemas import (
-    ChatRequest, ChatCompletion, ChatCompletionChunk, ErrorResponse
+    ChatRequest, ChatCompletion, ErrorResponse
 )
-from api import voice
-from logging_config import (
-    setup_logging, get_logger, log_request, log_response,
-    log_error, log_user_action
-)
+from api.tts import router as tts_router
 
-# Setup logging
-logger = setup_logging(log_file=True, log_to_console=True)
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger("hermes-api")
 
-# Create FastAPI app
 app = FastAPI(
     title="Hermes Agent API",
     description="Multi-user AI agent with persistent memory",
     version="1.0.0"
 )
 
-# Add CORS middleware
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -46,28 +38,9 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Include voice service router
-app.include_router(voice.router)
+# Register TTS routes
+app.include_router(tts_router)
 
-# Mount static files for the frontend
-static_dir = Path(__file__).parent.parent / "static"
-if static_dir.exists():
-    # Mount at root level so /assets/ works correctly
-    app.mount("/assets", StaticFiles(directory=str(static_dir / "assets")), name="assets")
-    # Also serve icons and other static files
-    app.mount("/static", StaticFiles(directory=str(static_dir)), name="static")
-
-@app.get("/")
-async def index():
-    """Serve the frontend index page."""
-    index_path = Path(__file__).parent.parent / "static" / "index.html"
-    if index_path.exists():
-        return FileResponse(str(index_path))
-    return {"message": "Hermes Agent API is running. Build frontend with `cd frontend && npm run build`"}
-
-
-# In-memory agent cache (simple version)
-# In production, use proper cache with TTL
 _agents: Dict[str, HermesAgent] = {}
 
 
@@ -95,7 +68,7 @@ async def chat_completions(request: ChatRequest):
     """
     OpenAI-compatible chat completions endpoint.
 
-    Supports both streaming and non-streaming responses.
+    Returns non-streaming response. Streaming simulation should be done on client side.
     """
     try:
         # Log request
@@ -106,109 +79,35 @@ async def chat_completions(request: ChatRequest):
         # Get or create agent for user
         agent = get_agent(request.user_id)
 
-        # Convert request messages to simple format
-        # If only one user message, use chat() method
-        # If multiple messages, need to reconstruct context
+        # Get the last user message
+        last_message = request.messages[-1]
+        if last_message.role != "user":
+            raise HTTPException(status_code=400, detail="Last message must be from user")
 
-        if len(request.messages) == 1 and request.messages[0].role == "user":
-            # Simple case: single user message
-            user_prompt = request.messages[0].content
+        # Get response from agent
+        response_text = agent.chat(last_message.content)
 
-            if request.stream:
-                # Streaming response
-                from api.stream import stream_agent_chat
+        completion_id = generate_completion_id()
+        created = int(time.time())
 
-                async def stream_generator():
-                    # Convert request messages to dicts for streaming
-                    messages_dicts = [{"role": msg.role, "content": msg.content} for msg in request.messages]
-                    for chunk in stream_agent_chat(agent, messages_dicts, request.model):
-                        yield chunk
-
-                return StreamingResponse(
-                    stream_generator(),
-                    media_type="text/event-stream"
-                )
-            else:
-                # Non-streaming response
-                response_text = agent.chat(user_prompt)
-
-                completion_id = generate_completion_id()
-                created = int(time.time())
-
-                # Log response
-                log_response(logger, 200, completion_id=completion_id,
-                             tokens=len(response_text))
-
-                return ChatCompletion(
-                    id=completion_id,
-                    created=created,
-                    model=request.model,
-                    choices=[{
-                        "index": 0,
-                        "message": {
-                            "role": "assistant",
-                            "content": response_text
-                        },
-                        "finish_reason": "stop"
-                    }],
-                    usage={
-                        "prompt_tokens": 0,
-                        "completion_tokens": len(response_text),
-                        "total_tokens": len(response_text)
-                    }
-                )
-        else:
-            # Complex case: multiple messages or conversation history
-            # Use the last user message for streaming, or last message generally
-            last_message = request.messages[-1]
-
-            # Find the last user message
-            user_prompt = None
-            for msg in reversed(request.messages):
-                if msg.role == "user":
-                    user_prompt = msg.content
-                    break
-
-            if user_prompt and request.stream:
-                # Streaming response with conversation history
-                from api.stream import stream_agent_chat
-
-                async def stream_generator():
-                    # For streaming, we send the last user message
-                    # The agent handles history from its own state
-                    messages_dicts = [{"role": "user", "content": user_prompt}]
-                    for chunk in stream_agent_chat(agent, messages_dicts, request.model):
-                        yield chunk
-
-                return StreamingResponse(
-                    stream_generator(),
-                    media_type="text/event-stream"
-                )
-            elif user_prompt:
-                # Non-streaming response
-                response_text = agent.chat(user_prompt)
-
-                completion_id = generate_completion_id()
-                created = int(time.time())
-
-                return ChatCompletion(
-                    id=completion_id,
-                    created=created,
-                    model=request.model,
-                    choices=[{
-                        "index": 0,
-                        "message": {
-                            "role": "assistant",
-                            "content": response_text
-                        },
-                        "finish_reason": "stop"
-                    }],
-                    usage={
-                        "prompt_tokens": 0,
-                        "completion_tokens": len(response_text),
-                        "total_tokens": len(response_text)
-                    }
-                )
+        return ChatCompletion(
+            id=completion_id,
+            created=created,
+            model=request.model,
+            choices=[{
+                "index": 0,
+                "message": {
+                    "role": "assistant",
+                    "content": response_text
+                },
+                "finish_reason": "stop"
+            }],
+            usage={
+                "prompt_tokens": len(str(last_message.content)),
+                "completion_tokens": len(response_text),
+                "total_tokens": len(str(last_message.content)) + len(response_text)
+            }
+        )
 
     except Exception as e:
         logger.error(f"Error in chat_completions: {e}")
