@@ -22,6 +22,7 @@ from api.schemas import (
 from logging_config import log_user_action
 from api.tts import router as tts_router
 from api.admin import router as admin_router
+from api.auth import router as auth_router
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("hermes-api")
@@ -45,6 +46,9 @@ app.include_router(tts_router)
 
 # Register Admin routes
 app.include_router(admin_router)
+
+# Register Auth routes
+app.include_router(auth_router)
 
 _agents: Dict[str, HermesAgent] = {}
 
