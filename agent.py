@@ -64,12 +64,19 @@ log_filename = logs_dir / f"hermes-{datetime.now().strftime('%Y-%m-%d')}.log"
 
 def setup_logging():
     """Configure logging with file and console output."""
-    if DEBUG:
-        log_level = logging.DEBUG
-        log_format = "%(asctime)s [%(levelname)s] %(name)s: %(message)s"
-    else:
-        log_level = logging.INFO
-        log_format = "%(asctime)s [%(levelname)s] %(name)s: %(message)s"
+    # Define TRACE level (more verbose than DEBUG)
+    TRACE_LEVEL = 5
+    logging.addLevelName(TRACE_LEVEL, "TRACE")
+
+    def trace(self, message, *args, **kwargs):
+        if self.isEnabledFor(TRACE_LEVEL):
+            self._log(TRACE_LEVEL, message, args, **kwargs)
+
+    logging.Logger.trace = trace
+
+    # Always use TRACE level for maximum detail
+    log_level = TRACE_LEVEL
+    log_format = "%(asctime)s [%(levelname)s] %(name)s: %(message)s"
 
     root_logger = logging.getLogger()
     root_logger.setLevel(log_level)
@@ -217,13 +224,6 @@ def get_tools_guide():
 - memory：你的笔记（环境事实、项目约定、经验教训）"""
 
 
-def get_working_directory():
-    """工作目录信息（动态）"""
-    return f"""## 工作目录
-
-当前工作目录：`{os.getcwd()}`"""
-
-
 def build_system_prompt(memory_store=None):
     """构建完整的系统提示"""
     parts = []
@@ -234,7 +234,6 @@ def build_system_prompt(memory_store=None):
         parts.append(f"\n# 用户定义人格\n\n{soul_content}")
 
     parts.append(get_tools_guide())
-    parts.append(get_working_directory())
 
     if memory_store:
         memory_block = memory_store.format_for_system_prompt("memory")
@@ -247,10 +246,6 @@ def build_system_prompt(memory_store=None):
 
     return "\n\n".join(parts)
 
-
-# =============================================================================
-# History management
-# =============================================================================
 
 def limit_history_rounds(history: List[Dict], max_rounds: int) -> List[Dict]:
     """限制对话历史轮数"""
@@ -284,10 +279,6 @@ def limit_history_rounds(history: List[Dict], max_rounds: int) -> List[Dict]:
 
     return result
 
-
-# =============================================================================
-# HermesAgent class
-# =============================================================================
 
 class HermesAgent:
     """
@@ -544,7 +535,7 @@ class HermesAgent:
                 return error_msg
 
             # Build assistant message
-            content_value = message.get("content") or ""
+            content_value = message.get("content") or message.get('reasoning_content') or ''
             assistant_msg = {"role": "assistant", "content": content_value}
 
             # Check if there are tool calls
@@ -653,97 +644,6 @@ class HermesAgent:
         self.history = []
         self.memory_store.clear_history()
         logger.debug(f"Cleared history for user '{self.user_id}'")
-
-
-# =============================================================================
-# CLI interface (backward compatibility)
-# =============================================================================
-
-def chat(prompt: str, history: Optional[List[Dict]] = None, memory_store: Optional[MemoryStore] = None) -> str:
-    """
-    Legacy chat function for backward compatibility.
-
-    Deprecated: Use HermesAgent class instead.
-    """
-    if history is None:
-        history = []
-
-    if memory_store is None:
-        memory_store = MemoryStore("default")
-        try:
-            memory_store.load_from_disk()
-        except Exception as e:
-            print(f"# Warning: Could not load memory: {e}")
-
-    # Add user message
-    user_msg = {"role": "user", "content": prompt}
-    history.append(user_msg)
-
-    while True:
-        system_content = build_system_prompt(memory_store)
-        limited_history = limit_history_rounds(history, MAX_CONTEXT_ROUNDS)
-        messages_with_system = [{"role": "system", "content": system_content}] + limited_history
-
-        headers = {
-            "Authorization": f"Bearer {api_key}",
-            "Content-Type": "application/json"
-        }
-
-        payload = {
-            "model": MODEL,
-            "messages": messages_with_system,
-            "tools": TOOL,
-            "max_tokens": 8000
-        }
-
-        try:
-            response = requests.post(chat_url, headers=headers, json=payload, timeout=120)
-            response.raise_for_status()
-            data = response.json()
-        except Exception as e:
-            return f"# 错误：{str(e)}"
-
-        try:
-            message = data["choices"][0]["message"]
-        except (KeyError, IndexError) as e:
-            return f"# 错误：API 响应格式异常 - {str(e)}"
-
-        content_value = message.get("content") or ""
-        assistant_msg = {"role": "assistant", "content": content_value}
-
-        if "tool_calls" in message and message["tool_calls"]:
-            assistant_msg["tool_calls"] = []
-            for tc in message["tool_calls"]:
-                assistant_msg["tool_calls"].append({
-                    "id": tc["id"],
-                    "type": tc["type"],
-                    "function": {
-                        "name": tc["function"]["name"],
-                        "arguments": tc["function"]["arguments"]
-                    }
-                })
-
-        history.append(assistant_msg)
-
-        if "tool_calls" not in message or not message["tool_calls"]:
-            return content_value
-
-        # Handle tool calls
-        results = []
-        for tc in message["tool_calls"]:
-            func_name = tc["function"]["name"]
-            func_args = json.loads(tc["function"]["arguments"])
-
-            if func_name == "memory":
-                result = memory_store.handle_tool_call(func_args)
-                results.append({
-                    "role": "tool",
-                    "tool_call_id": tc["id"],
-                    "content": result
-                })
-
-        history.extend(results)
-
 
 if __name__ == "__main__":
     if len(sys.argv) > 1:
