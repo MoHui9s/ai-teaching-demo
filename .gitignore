@@ -33,5 +33,6 @@ Thumbs.db
 memories/*/
 !memories/.gitkeep
 
-# TTS cache database
+# Runtime data
 data/*.db
+data/*.json

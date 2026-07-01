@@ -19,7 +19,9 @@ from agent import HermesAgent,  MODEL
 from api.schemas import (
     ChatRequest, ChatCompletion, ErrorResponse
 )
+from logging_config import log_user_action
 from api.tts import router as tts_router
+from api.admin import router as admin_router
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("hermes-api")
@@ -40,6 +42,9 @@ app.add_middleware(
 
 # Register TTS routes
 app.include_router(tts_router)
+
+# Register Admin routes
+app.include_router(admin_router)
 
 _agents: Dict[str, HermesAgent] = {}
 

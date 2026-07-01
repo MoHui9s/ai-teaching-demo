@@ -640,6 +640,19 @@ class HermesAgent:
 
         return final_response
 
+    def chat(self, prompt: str, messages: List[Dict] = None) -> str:
+        """
+        Public interface to send a message and get a response.
+
+        Args:
+            prompt: User's input message
+            messages: Optional custom messages list (for streaming reuse)
+
+        Returns:
+            Assistant's response text
+        """
+        return self._prepare_request(prompt, messages)
+
     def clear_history(self) -> None:
         """Clear conversation history for this user."""
         self.history = []
