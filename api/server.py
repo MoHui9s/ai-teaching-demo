@@ -1,6 +1,6 @@
 """FastAPI server for Hermes Agent."""
 
-VERSION = "1.3.0"
+VERSION = "1.4.0"
 
 import time
 import json
@@ -34,6 +34,24 @@ app = FastAPI(
     description="Multi-user AI agent with persistent memory",
     version="1.0.0"
 )
+
+
+@app.on_event("startup")
+async def startup_check():
+    """Startup validation: ensure critical files exist before accepting requests."""
+    from pathlib import Path
+    import os
+
+    soul_path = Path(os.getcwd()) / "SOUL.md"
+    if not soul_path.exists():
+        logger.critical(
+            f"致命错误：SOUL.md 未找到！期望路径：{soul_path}，"
+            f"当前工作目录：{os.getcwd()}"
+        )
+        import sys
+        sys.exit(1)
+    logger.info(f"SOUL.md 验证通过：{soul_path}")
+
 
 app.add_middleware(
     CORSMiddleware,

@@ -524,6 +524,7 @@ dependencies = [
     { name = "bcrypt" },
     { name = "edge-tts" },
     { name = "fastapi" },
+    { name = "plyvel" },
     { name = "pydantic" },
     { name = "pyjwt" },
     { name = "python-dotenv" },
@@ -536,6 +537,7 @@ requires-dist = [
     { name = "bcrypt", specifier = ">=5.0.0" },
     { name = "edge-tts", specifier = ">=7.2.8" },
     { name = "fastapi", specifier = ">=0.115.0" },
+    { name = "plyvel", specifier = ">=1.5.1" },
     { name = "pydantic", specifier = ">=2.0.0" },
     { name = "pyjwt", specifier = ">=2.13.0" },
     { name = "python-dotenv", specifier = ">=1.2.0" },
@@ -713,6 +715,16 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/0c/f7/addf1087b860ac60e6f382240f64fb99f8bfb532bb06f7c542b83c29ca61/multidict-6.7.1-cp314-cp314t-win_amd64.whl", hash = "sha256:497bde6223c212ba11d462853cfa4f0ae6ef97465033e7dc9940cdb3ab5b48e5", size = 53542, upload-time = "2026-01-26T02:46:08.809Z" },
     { url = "https://files.pythonhosted.org/packages/4c/81/4629d0aa32302ef7b2ec65c75a728cc5ff4fa410c50096174c1632e70b3e/multidict-6.7.1-cp314-cp314t-win_arm64.whl", hash = "sha256:2bbd113e0d4af5db41d5ebfe9ccaff89de2120578164f86a5d17d5a576d1e5b2", size = 44719, upload-time = "2026-01-26T02:46:11.146Z" },
     { url = "https://files.pythonhosted.org/packages/81/08/7036c080d7117f28a4af526d794aab6a84463126db031b007717c1a6676e/multidict-6.7.1-py3-none-any.whl", hash = "sha256:55d97cc6dae627efa6a6e548885712d4864b81110ac76fa4e534c03819fa4a56", size = 12319, upload-time = "2026-01-26T02:46:44.004Z" },
+]
+
+[[package]]
+name = "plyvel"
+version = "1.5.1"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/4b/b0/23f0cc21c943355fc5d49f1933e97812269d7a865daef5b9758b62902d46/plyvel-1.5.1.tar.gz", hash = "sha256:3caf6009e4fc24fbf8712d3f5ef3da7e56495c26a488df2161218fc34e46019c", size = 200128, upload-time = "2024-01-15T17:33:55.681Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/d6/66/c3f3cde6e34609aae299aa0eaf73b8c6b6a65471eaee453f0b464c0046bb/plyvel-1.5.1-cp311-cp311-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:54f364f566470f5acaed0a00fea8860736120a711214190a17ee73dcbe1a2261", size = 946187, upload-time = "2024-01-15T17:33:46.438Z" },
+    { url = "https://files.pythonhosted.org/packages/87/c2/0928017d85aa76dadb5afe4092eedd37ae68ec5b9cfbe7993e520d705a98/plyvel-1.5.1-cp312-cp312-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:8b26b09d6ae9c679c877153aa4bd7f763e5e983a61b7c0c955653e7a494b6126", size = 937804, upload-time = "2024-01-15T17:33:48.09Z" },
 ]
 
 [[package]]

@@ -1,7 +1,7 @@
 <script setup>
 import { computed, ref, onUnmounted } from 'vue'
 import { renderMarkdown, formatTime } from '../utils/markdown'
-import { extractEnglishPhrase, isEnglishText } from '../utils/phraseExtractor'
+import { wrapEnglishPhrases, isEnglishText } from '../utils/phraseExtractor'
 import { getTTSPlayer } from '../utils/ttsAudioPlayer'
 
 const props = defineProps({
@@ -26,145 +26,77 @@ const time = computed(() => {
   return props.message.timestamp ? formatTime(props.message.timestamp) : ''
 })
 
-// Render markdown content
+// Render markdown content with span-wrapping for TTS
 const renderedContent = computed(() => {
   if (isError.value) return props.message.content
-  return renderMarkdown(props.message.content || '')
+  const html = renderMarkdown(props.message.content || '')
+  return wrapEnglishPhrases(html)
 })
 
 // TTS 相关状态
-const isLoading = ref(false) // 加载/闪耀状态
-const isPlaying = ref(false)  // 播放状态
-const highlightedText = ref('') // 高亮的文本
+const activePhraseEl = ref(null)
 
 // TTS播放器实例
 const ttsPlayer = getTTSPlayer()
 
 /**
- * 处理文本点击事件
+ * 清除当前激活短语的高亮
+ */
+function clearActiveHighlight() {
+  if (activePhraseEl.value) {
+    activePhraseEl.value.classList.remove('tts-loading', 'tts-playing')
+    activePhraseEl.value = null
+  }
+}
+
+/**
+ * 处理文本点击事件 —— 事件委托在 .tts-phrase span 上
  */
 async function handleTextClick(event) {
-  // 只处理assistant消息的点击
   if (!isAssistant.value) return
 
-  // 检查播放器是否忙碌
-  if (ttsPlayer.isBusy) {
-    console.log('TTS正在播放中，忽略点击')
-    return
-  }
+  if (ttsPlayer.isBusy) return
 
-  // 获取容器元素
-  const container = event.currentTarget
-  if (!container) return
+  // 通过 closest 定位目标短语 span（零坐标依赖）
+  const phraseEl = event.target.closest('.tts-phrase')
+  if (!phraseEl) return
 
-  // 使用 caretRangeFromPoint 获取精确的点击位置
-  let clickNode = null
-  let clickOffset = 0
+  const phrase = phraseEl.dataset?.phrase
+  if (!phrase || !isEnglishText(phrase)) return
 
-  // 尝试使用 caretRangeFromPoint 获取精确位置
-  try {
-    const range = document.caretRangeFromPoint(event.clientX, event.clientY)
-    if (range) {
-      clickNode = range.startContainer
-      clickOffset = range.startOffset
-    }
-  } catch (e) {
-    console.warn('caretRangeFromPoint 失败:', e)
-  }
+  // 清除上一个高亮
+  clearActiveHighlight()
 
-  // 如果没有获取到精确位置，回退到原有逻辑
-  if (!clickNode || clickNode.nodeType !== Node.TEXT_NODE) {
-    clickNode = event.target
-    clickOffset = 0
+  // 短语级加载动画
+  phraseEl.classList.add('tts-loading')
+  activePhraseEl.value = phraseEl
 
-    // 如果点击的是元素节点，找到第一个文本子节点
-    if (clickNode.nodeType !== Node.TEXT_NODE) {
-      const walker = document.createTreeWalker(
-        container,
-        NodeFilter.SHOW_TEXT,
-        null,
-        false
-      )
-      let textNode = null
-      while (walker.nextNode()) {
-        const node = walker.currentNode
-        if (clickNode.contains(node)) {
-          textNode = node
-          break
-        }
-      }
-      if (textNode) {
-        clickNode = textNode
-        clickOffset = 0
-      } else {
-        // 使用容器的第一个文本节点
-        clickNode = container.firstChild
-        while (clickNode && clickNode.nodeType !== Node.TEXT_NODE) {
-          clickNode = clickNode.firstChild
-        }
-        if (!clickNode) return
-      }
-    }
-  }
-
-  if (!clickNode) return
-
-  // 提取英语短语
-  const phrase = extractEnglishPhrase(container, clickNode, clickOffset)
-
-  // 验证是否为英语文本
-  if (!phrase || !isEnglishText(phrase)) {
-    return
-  }
-
-  // 立即显示加载状态（闪耀效果）
-  isLoading.value = true
-  highlightedText.value = phrase
-
-  // 播放语音
   try {
     const result = await ttsPlayer.play(phrase)
 
-    // 如果是从缓存加载，延迟一下再隐藏加载状态
     if (result.cached) {
       await new Promise(resolve => setTimeout(resolve, 200))
     }
 
-    isLoading.value = false
-    isPlaying.value = true
+    phraseEl.classList.remove('tts-loading')
+    phraseEl.classList.add('tts-playing')
 
-    // 播放完成后清除状态
     const onEnded = () => {
-      isLoading.value = false
-      isPlaying.value = false
-      highlightedText.value = ''
+      clearActiveHighlight()
       ttsPlayer.audio.removeEventListener('ended', onEnded)
     }
     ttsPlayer.audio.addEventListener('ended', onEnded)
 
   } catch (error) {
     console.error('TTS播放失败:', error)
-    isLoading.value = false
-    isPlaying.value = false
-    highlightedText.value = ''
+    clearActiveHighlight()
   }
-
-  // 清除选择
-  const selection = window.getSelection()
-  selection.removeAllRanges()
-}
-
-/**
- * 处理触摸事件（移动端）
- */
-function handleTouchEnd(event) {
-  handleTextClick(event)
 }
 
 // 组件卸载时清理
 onUnmounted(() => {
-  // 如果是本组件触发的播放，停止播放
-  if (isPlaying.value && highlightedText.value === ttsPlayer.currentText) {
+  clearActiveHighlight()
+  if (ttsPlayer.isPlaying && activePhraseEl.value) {
     ttsPlayer.stop()
   }
 })
@@ -188,10 +120,8 @@ onUnmounted(() => {
       <div
         v-else
         class="content-text tts-content"
-        :class="{ 'is-playing': isPlaying, 'is-loading': isLoading }"
         v-html="renderedContent"
         @click="handleTextClick"
-        @touchend="handleTouchEnd"
       ></div>
 
       <!-- Timestamp -->
@@ -376,60 +306,31 @@ onUnmounted(() => {
   cursor: pointer;
   user-select: none;
   -webkit-tap-highlight-color: transparent;
-  transition: all var(--transition-fast);
-  position: relative;
-  overflow: hidden;
 }
 
-.message-bubble.assistant .content-text.tts-content:active {
-  background-color: var(--bg-secondary);
+/* 短语级 span 样式 */
+.content-text :deep(.tts-phrase) {
+  border-radius: 3px;
+  padding: 1px 0;
+  transition: background-color 0.2s, box-shadow 0.2s;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
 }
 
-/* 加载中闪耀效果 */
-.message-bubble.assistant .content-text.tts-content.is-loading {
-  animation: shimmer 0.8s ease-out;
+/* 加载中——脉冲动画 */
+.content-text :deep(.tts-phrase.tts-loading) {
+  animation: phrase-pulse 0.6s ease-in-out infinite;
 }
 
-.message-bubble.assistant .content-text.tts-content.is-loading::after {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: -100%;
-  width: 50%;
-  height: 100%;
-  background: linear-gradient(
-    90deg,
-    transparent,
-    rgba(99, 102, 241, 0.3),
-    transparent
-  );
-  animation: shimmer-sweep 0.8s ease-out;
+@keyframes phrase-pulse {
+  0%, 100% { background-color: rgba(99, 102, 241, 0.08); }
+  50% { background-color: rgba(99, 102, 241, 0.22); }
 }
 
-@keyframes shimmer {
-  0% {
-    box-shadow: 0 0 0 0 rgba(99, 102, 241, 0.4);
-  }
-  50% {
-    box-shadow: 0 0 0 8px rgba(99, 102, 241, 0.2);
-  }
-  100% {
-    box-shadow: 0 0 0 16px rgba(99, 102, 241, 0);
-  }
-}
-
-@keyframes shimmer-sweep {
-  0% {
-    left: -50%;
-  }
-  100% {
-    left: 150%;
-  }
-}
-
-.message-bubble.assistant .content-text.tts-content.is-playing {
-  background-color: var(--bg-secondary);
-  border-color: var(--accent-color);
+/* 播放中——实色高亮 + box-shadow */
+.content-text :deep(.tts-phrase.tts-playing) {
+  background-color: rgba(99, 102, 241, 0.15);
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.18);
 }
 
 .content-text :deep(ul),

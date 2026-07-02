@@ -188,16 +188,24 @@ def get_base_personality():
 
 
 def load_soul_md():
-    """加载 SOUL.md（可选，用户自定义人格）"""
+    """加载 SOUL.md（必需——定义智能体核心人格）"""
     soul_path = Path(os.getcwd()) / "SOUL.md"
-    if soul_path.exists():
-        try:
-            content = soul_path.read_text(encoding="utf-8").strip()
-            if content:
-                return content
-        except Exception:
-            pass
-    return None
+    if not soul_path.exists():
+        raise RuntimeError(
+            f"致命错误：SOUL.md 未找到！\n"
+            f"期望路径：{soul_path}\n"
+            f"当前工作目录：{os.getcwd()}\n"
+            f"请确保从项目根目录启动服务，且 SOUL.md 文件存在。"
+        )
+    try:
+        content = soul_path.read_text(encoding="utf-8").strip()
+        if not content:
+            raise RuntimeError(f"致命错误：SOUL.md 文件为空！路径：{soul_path}")
+        return content
+    except RuntimeError:
+        raise
+    except Exception as e:
+        raise RuntimeError(f"致命错误：无法读取 SOUL.md ({soul_path})：{e}")
 
 
 def get_tools_guide():
