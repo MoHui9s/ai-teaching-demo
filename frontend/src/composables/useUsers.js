@@ -22,7 +22,12 @@ export function useUsers() {
 
   const loadUsers = async () => {
     try {
-      const response = await fetch(`${API_BASE}/v1/users`)
+      const adminToken = localStorage.getItem('admin_token')
+      const headers = {}
+      if (adminToken) {
+        headers['X-Admin-Token'] = adminToken
+      }
+      const response = await fetch(`${API_BASE}/v1/users`, { headers })
       if (!response.ok) throw new Error('Failed to fetch users')
       const data = await response.json()
       users.value = data.users || []
@@ -47,8 +52,18 @@ export function useUsers() {
 
   const clearHistory = async () => {
     try {
+      const adminToken = localStorage.getItem('admin_token')
+      const authToken = localStorage.getItem('auth_token')
+      const headers = {}
+      if (adminToken) {
+        headers['X-Admin-Token'] = adminToken
+      }
+      if (authToken) {
+        headers['Authorization'] = `Bearer ${authToken}`
+      }
       const response = await fetch(`${API_BASE}/v1/users/${currentUserId.value}/history`, {
-        method: 'DELETE'
+        method: 'DELETE',
+        headers
       })
       if (!response.ok) throw new Error('Failed to clear history')
       return true

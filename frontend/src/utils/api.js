@@ -29,11 +29,17 @@ export async function fakeStream(text, onChunk, chunkSize = 3, delay = 30) {
  * @returns {Promise<string>} - Complete response
  */
 export async function chatCompletion(messages, userId, signal) {
+  const token = localStorage.getItem('auth_token')
+  const headers = {
+    'Content-Type': 'application/json',
+  }
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`
+  }
+
   const response = await fetch('/v1/chat/completions', {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
+    headers,
     body: JSON.stringify({
       messages,
       user_id: userId,

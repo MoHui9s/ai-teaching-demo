@@ -13,7 +13,16 @@ export function useChat(userId) {
 
   const loadHistory = async () => {
     try {
-      const response = await fetch(`/v1/users/${userId.value}/history`)
+      const adminToken = localStorage.getItem('admin_token')
+      const authToken = localStorage.getItem('auth_token')
+      const headers = {}
+      if (adminToken) {
+        headers['X-Admin-Token'] = adminToken
+      }
+      if (authToken) {
+        headers['Authorization'] = `Bearer ${authToken}`
+      }
+      const response = await fetch(`/v1/users/${userId.value}/history`, { headers })
       if (!response.ok) throw new Error(`Failed to load history (${response.status})`)
       const data = await response.json()
       messages.value = data.messages || []

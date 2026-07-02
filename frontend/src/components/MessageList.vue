@@ -29,6 +29,15 @@ function getNpcMessages(message) {
   return npcMessages
 }
 
+/**
+ * 判断消息是否为最近收到的新消息（10秒内），用于决定是否自动播放语音
+ */
+function isRecentMessage(message) {
+  if (!message.timestamp) return false
+  const age = Date.now() - new Date(message.timestamp).getTime()
+  return age < 10000
+}
+
 // Combine messages with streaming content for display
 const displayMessages = computed(() => {
   if (showStreaming.value && props.streamingContent) {
@@ -74,6 +83,7 @@ const displayMessages = computed(() => {
               content: npc.content,
               timestamp: msg.timestamp
             }"
+            :auto-play="isRecentMessage(msg)"
           />
         </template>
 

@@ -4,7 +4,7 @@ import vue from '@vitejs/plugin-vue'
 export default defineConfig({
   plugins: [vue()],
   build: {
-    outDir: '../static',
+    outDir: '../lee_agent/static',
     emptyOutDir: true,
   },
   server: {
@@ -26,9 +26,5 @@ export default defineConfig({
         secure: false,
       },
     },
-  },
-  test: {
-    environment: 'jsdom',
-    include: ['src/**/*.test.js'],
   },
 })

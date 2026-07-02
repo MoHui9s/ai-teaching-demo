@@ -2,11 +2,16 @@
 import { ref, onUnmounted } from 'vue'
 import { formatTime } from '../utils/markdown'
 import { getTTSPlayer } from '../utils/ttsAudioPlayer'
+import { stripMarkdown } from '../utils/npcParser'
 
 const props = defineProps({
   message: {
     type: Object,
     required: true
+  },
+  autoPlay: {
+    type: Boolean,
+    default: false
   }
 })
 
@@ -24,13 +29,7 @@ const time = props.message.timestamp ? formatTime(props.message.timestamp) : ''
  * 播放NPC语音
  */
 async function playVoice() {
-  // 检查播放器是否忙碌
-  if (ttsPlayer.isBusy) {
-    console.log('TTS正在播放中，忽略点击')
-    return
-  }
-
-  const text = props.message.content
+  const text = stripMarkdown(props.message.content)
   if (!text) return
 
   // 显示加载状态
@@ -62,8 +61,15 @@ async function playVoice() {
   }
 }
 
-// 组件挂载时自动播放
-playVoice()
+// 仅在收到新消息时自动播放，加载历史消息时不播放
+if (props.autoPlay) {
+  playVoice().catch(err => {
+    // 浏览器自动播放策略阻止时静默处理
+    if (err.name === 'NotAllowedError') {
+      console.log('自动播放被浏览器阻止，用户点击后可播放')
+    }
+  })
+}
 
 // 组件卸载时清理
 onUnmounted(() => {

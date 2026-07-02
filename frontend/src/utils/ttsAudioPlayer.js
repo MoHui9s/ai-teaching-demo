@@ -15,6 +15,9 @@ class TTSPlayer {
     this.isLoading = false
     this.isBusy = false // 播放中或加载中标记
 
+    // 播放队列：{ text, voice, resolve }[]
+    this.playQueue = []
+
     // 前端音频缓存：Map<text, {url, duration, voice}>
     this.audioCache = new Map()
 
@@ -23,6 +26,8 @@ class TTSPlayer {
       this.isPlaying = false
       this.isLoading = false
       this.isBusy = false
+      // 播放完成后，处理队列中的下一个
+      this._processQueue()
     })
 
     this.audio.addEventListener('play', () => {
@@ -38,7 +43,22 @@ class TTSPlayer {
       this.isLoading = false
       this.isPlaying = false
       this.isBusy = false
+      // 出错后处理队列中的下一个
+      this._processQueue()
     })
+  }
+
+  /**
+   * 处理播放队列：当前播放结束后自动播放下一个
+   */
+  _processQueue() {
+    if (this.playQueue.length === 0) return
+
+    const next = this.playQueue.shift()
+    // 延迟 1s 再播放下一个，让用户有喘息时间
+    setTimeout(() => {
+      this.play(next.text, next.voice).then(next.resolve).catch(() => {})
+    }, 1000)
   }
 
   /**
@@ -55,10 +75,12 @@ class TTSPlayer {
 
     text = text.trim()
 
-    // 如果正在忙碌中，忽略新的播放请求
+    // 如果正在忙碌中，加入队列
     if (this.isBusy) {
-      console.log('TTS正在播放中，忽略新请求')
-      return { url: this.currentUrl, cached: true, duration: 0 }
+      console.log(`TTS正在播放中，加入队列: "${text.substring(0, 20)}..."`)
+      return new Promise((resolve) => {
+        this.playQueue.push({ text, voice, resolve })
+      })
     }
 
     // 检查前端缓存

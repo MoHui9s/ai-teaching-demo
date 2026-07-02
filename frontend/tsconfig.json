@@ -6,17 +6,20 @@
     "types": ["vite/client"],
     "skipLibCheck": true,
     "allowJs": true,
-    "checkJs": false,
 
     /* Bundler mode */
     "moduleResolution": "bundler",
+    "allowImportingTsExtensions": true,
+    "verbatimModuleSyntax": true,
     "moduleDetection": "force",
     "noEmit": true,
 
     /* Linting */
     "noUnusedLocals": false,
     "noUnusedParameters": false,
+    "erasableSyntaxOnly": true,
     "noFallthroughCasesInSwitch": true
   },
-  "include": ["src"]
+  "include": ["src/**/*"],
+  "exclude": ["node_modules"]
 }

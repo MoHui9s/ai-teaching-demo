@@ -6,7 +6,8 @@ const props = defineProps({
   currentUserId: String,
   users: Array,
   messageCount: Number,
-  isDark: Boolean
+  isDark: Boolean,
+  isAdmin: Boolean
 })
 
 const emit = defineEmits([
@@ -14,6 +15,8 @@ const emit = defineEmits([
   'new-user',
   'toggle-dark',
   'clear-history',
+  'create-user',
+  'admin-logout',
   'close'
 ])
 
@@ -110,6 +113,27 @@ const getUserInitial = (userId) => {
 
     <!-- Actions -->
     <div class="sidebar-actions">
+      <!-- Admin-only buttons -->
+      <template v-if="isAdmin">
+        <button class="action-button admin-action" @click="emit('create-user')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M16 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/>
+            <circle cx="8.5" cy="7" r="4"/>
+            <path d="M20 8v6M23 11h-6"/>
+          </svg>
+          Create User
+        </button>
+
+        <button class="action-button admin-action logout" @click="emit('admin-logout')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/>
+            <polyline points="16 17 21 12 16 7"/>
+            <line x1="21" y1="12" x2="9" y2="12"/>
+          </svg>
+          Admin Logout
+        </button>
+      </template>
+
       <button class="action-button" @click="emit('clear-history')">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
           <path d="M3 6h18M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/>
@@ -394,6 +418,28 @@ const getUserInitial = (userId) => {
 .action-button svg {
   width: 16px;
   height: 16px;
+}
+
+.action-button.admin-action {
+  background: var(--accent-color);
+  color: white;
+  border-color: var(--accent-color);
+}
+
+.action-button.admin-action:hover {
+  background: var(--accent-hover);
+  border-color: var(--accent-hover);
+  color: white;
+}
+
+.action-button.admin-action.logout {
+  background: #e53e3e;
+  border-color: #e53e3e;
+}
+
+.action-button.admin-action.logout:hover {
+  background: #c53030;
+  border-color: #c53030;
 }
 
 @media (min-width: 769px) {
