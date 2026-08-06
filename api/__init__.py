@@ -1,3 +1,3 @@
-"""Hermes Agent API module."""
+"""Tan同学-AI英语助教 API 模块"""
 
-__version__ = "1.0.0"
+__version__ = "2.0.0"

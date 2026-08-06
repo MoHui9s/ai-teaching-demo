@@ -1,147 +1,80 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+This file provides guidance to Claude Code when working with code in this repository.
 
-## Common Development Commands
+## 项目概述
 
-### Dependency Management
+**Tan同学-AI英语助教** — 基于 lee_agent (Hermes Agent) 改造的 AI 驱动全栈英语学习系统。面向国内初中级英语学习者，涵盖每日任务引擎、发音评估、场景对话、进度看板、成就系统五大模块。
+
+## 常用命令
+
+### 依赖管理
 ```bash
-# Install/sync dependencies
 uv sync
 ```
 
-### Running the Agent
+### 后端启动
 ```bash
-# Interactive REPL mode
-uv run python agent.py
+# 初始化数据库
+python -c "from database.database import init_db; init_db()"
 
-# Single command mode
-uv run python agent.py "your task here"
+# 加载 RAG 知识库
+python -c "from rag.document_loader import get_document_loader; get_document_loader().load_all()"
+
+# 启动 API 服务
+uv run uvicorn api.server:app --host 0.0.0.0 --port 8000 --reload
 ```
 
-### Running the API Server
+### Agent REPL
 ```bash
-# Start API server (default: 0.0.0.0:8000)
-uv run uvicorn api.server:app --host 0.0.0.0 --port 8000
-
-# Or using Python module
-uv run python -m api.server
+uv run python agent.py "帮我生成今天的英语学习任务"
 ```
 
-### Frontend Development
+### 前端启动
 ```bash
-# Development server (frontend/)
-npm run dev
-
-# Build for production
-npm run build
-
-# Preview production build
-npm run preview
+cd frontend && npm install && npm run dev
 ```
 
-### Testing
+### Docker 部署
 ```bash
-# Run memory tests
-uv run python test_memory.py
+docker-compose -f deploy/docker-compose.yml up -d
 ```
 
-## Architecture Overview
+## 架构概览
 
-Hermes Agent is a minimal multi-user AI agent framework with persistent memory and OpenAI API compatibility.
+### 核心组件
 
-### Core Components
+**Agent (`agent.py`)**
+- `HermesAgent` 类：多用户 Agent，5 个工具
+- 工具：memory / evaluate_pronunciation / generate_daily_task / start_scenario / search_knowledge
+- `_agent_loop()` 主循环：最多 8 次迭代，支持 tool_calls → execute → continue
+- `build_system_prompt()` 构建系统提示：基础人格 + SOUL.md + 工具说明 + 记忆
 
-**HermesAgent (`agent.py`)**
-- Main agent class implementing chat logic with tool calling support
-- Each instance represents one user with isolated memory
-- System prompt built from: base personality + SOUL.md + memory + tools guide + working directory
-- Tool calls (memory) trigger continuation loop until final response
-- History limited to `MAX_CONTEXT_ROUNDS` (default: 40) to manage context window
+**RAG 系统 (`rag/`)**
+- `embeddings.py`：OpenAI Embedding 生成 (text-embedding-3-small)
+- `vector_store.py`：ChromaDB 持久化向量存储
+- `retriever.py`：知识检索器（按 topic 分流）
+- `document_loader.py`：内置语法规则 + 发音技巧知识库
 
-**MemoryStore (`memory.py`)**
-- Per-user, file-based persistent storage
-- Two parallel states:
-  - `_system_prompt_snapshot`: frozen at load time for stable prefix cache
-  - `memory_entries` / `user_entries`: live state mutated by tool calls
-- Three memory operations: `add`, `replace`, `remove`
-- Per-entry storage: each memory is a separate JSON file (`memories/{user_id}/memory/*.json` or `memories/{user_id}/user/*.json`)
-- Character limits: 25,000 for memory, 15,000 for user
-- Security scanning blocks injection/exfiltration patterns in memory content
+**数据库 (SQLAlchemy ORM)**
+- 7 张表：users / daily_tasks / pronunciation_records / dialog_history / daily_progress / achievements / weekly_reports
+- `database/database.py`：引擎 + Session 管理
+- `database/models.py`：ORM 模型定义
 
-**API Server (`api/server.py`)**
-- FastAPI with OpenAI-compatible `/v1/chat/completions` endpoint
-- In-memory agent cache per user_id
-- Supports both streaming (SSE) and non-streaming responses
-- Endpoints: chat completions, user history CRUD, user listing, health check
-
-**Streaming (`api/stream.py`)**
-- Two-phase streaming: stream upstream content, then handle tools non-streamingly
-- Accumulates tool calls during streaming, executes after stream ends
-- Sends "Saving memory..." status when tool_calls detected
-
-### Memory System Details
-
-```
-memories/
-├── {user_id}/
-│   ├── memory/          # Agent's notes (environment facts, conventions)
-│   │   └── *.json       # Per-entry files
-│   ├── user/            # User profile (preferences, style)
-│   │   └── *.json
-│   └── history.json     # Short-term conversation history
-```
-
-Each memory entry file contains:
-```json
-{
-  "id": "unique_id",
-  "content": "entry text",
-  "created": "ISO timestamp",
-  "updated": "ISO timestamp"
-}
-```
-
-**Key design choice**: The system prompt snapshot is frozen at `load_from_disk()` time. Mid-session memory writes don't affect the current session's system prompt - this preserves the prefix cache. Changes appear in the next session.
+**API 服务**
+- 9 个路由器：server / auth / tts / admin / asr / pronunciation / tasks / progress / achievements / scenarios
+- 兼容 OpenAI `/v1/chat/completions` 格式
 
 ### SOUL.md
 
-Global agent personality file (shared across all users). Used for:
-- Defining agent tone and communication style
-- Setting default behaviors
-- Specifying what to avoid
+定义 Agent 核心人格：耐心鼓励型的 AI 英语私教，支持 5 种教学模式（每日任务、发音训练、场景对话、能力诊断、周报总结）。
 
-Do NOT put user-specific memories or technical facts here - use the memory tool for those.
+### 配置
 
-### Configuration
+- LLM API：通过 `.env` 中 `OPENAI_API_KEY` + `OPENAI_BASE_URL` 配置，兼容 OpenAI/DeepSeek/智谱
+- Azure Speech：`AZURE_SPEECH_KEY` + `AZURE_SPEECH_REGION`（可选，未配置时使用模拟数据）
+- 每日预算：`DAILY_API_BUDGET=2.0`（元）
 
-All configuration via `.env`:
-- `OPENAI_API_KEY` / `ANTHROPIC_API_KEY`: API authentication
-- `OPENAI_BASE_URL`: auto-constructs `/chat/completions` endpoint
-- `MODEL`: model to use (default: gpt-4o)
-- `MAX_CONTEXT_ROUNDS`: history round limit (default: 40)
-- `DEBUG` / `LOG_LEVEL` / `LOG_FILE`: logging controls
+## 项目来源
 
-### Windows Encoding Fix
-
-The agent applies UTF-8 wrapper to stdout/stderr on Windows to handle encoding issues in CLI output.
-
-## Tool Calling Flow
-
-1. User message → API request
-2. Agent builds system prompt with memory snapshot
-3. LLM responds with potential tool_calls
-4. For each tool call: execute `memory` tool, append result to history
-5. Continue API call with updated history
-6. Repeat until no more tool_calls
-7. Save final history to disk
-
-## Security
-
-Memory content is scanned for:
-- Prompt injection patterns (ignore instructions, system prompt override)
-- Exfiltration attempts (curl with env vars, reading secret files)
-- SSH backdoor patterns (authorized_keys, ~/.ssh)
-- Invisible Unicode characters
-
-Blocked content returns error without persisting.
+本项目从 lee_agent (https://gitee.com/ichiva_admin/lee_agent.git) 克隆改造而来。保留的模块：Agent 循环、记忆系统、TTS 服务、JWT 认证、审计日志。

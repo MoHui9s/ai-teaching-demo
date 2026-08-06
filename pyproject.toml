@@ -1,7 +1,7 @@
 [project]
-name = "hermes-agent"
+name = "tan-english-tutor"
 version = "0.1.0"
-description = "Minimal AI Agent with Persistent Memory"
+description = "Tan同学-AI英语助教 — AI驱动的全栈英语学习系统"
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
@@ -14,6 +14,11 @@ dependencies = [
     "bcrypt>=5.0.0",
     "pyjwt>=2.13.0",
     "plyvel>=1.5.1",
+    "sqlalchemy>=2.0.0",
+    "chromadb>=0.5.0",
+    "openai>=1.0.0",
+    "apscheduler>=3.10.0",
+    "azure-cognitiveservices-speech>=1.37.0",
 ]
 
 [build-system]

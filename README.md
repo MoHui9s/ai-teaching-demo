@@ -1,218 +1,171 @@
-# Hermes Agent
+# Tan同学-AI英语助教 📚
 
-极简 AI 代理框架，支持多用户、持久化记忆、可自定义人格和 OpenAI API 兼容服务。
+> **AI 驱动的全栈英语学习系统** — 基于大模型 Agent + RAG + 语音评估
 
-## 特性
+[![Python](https://img.shields.io/badge/Python-3.12-blue.svg)](https://python.org)
+[![FastAPI](https://img.shields.io/badge/FastAPI-0.115-green.svg)](https://fastapi.tiangolo.com)
+[![React](https://img.shields.io/badge/React-18-61DAFB.svg)](https://react.dev)
+[![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
-- **极简架构**：核心实现简洁，易于理解和修改
-- **多用户支持**：每个用户独立的长短期记忆，数据完全隔离
-- **OpenAI API 兼容**：提供 HTTP API 接口，支持流式输出
-- **可自定义人格**：通过 SOUL.md 文件定义代理的风格和行为
-- **持久化记忆**：基于文件的长短期记忆存储
-- **对话历史持久化**：短期对话自动保存，重启后可恢复
-- **安全扫描**：防止提示注入、数据外泄、SSH 后门
+## 🎯 项目简介
 
-## 安装
+一个面向国内大学生（以 Tan 同学为典型用户）的 AI 英语学习系统，采用 **每日微小任务 + AI 即时反馈 + 学习进度可视化** 的设计哲学，帮助英语基础薄弱的学习者在碎片时间中稳步提升听说读写能力。
 
-使用 [uv](https://github.com/astral-sh/uv) 管理依赖：
+### 核心痛点解决
+
+| 痛点 | 解决方案 |
+|------|----------|
+| 📝 词汇量不足（~2500） | AI 动态生成每日词汇任务，RAG 知识库即时查词 |
+| 🗣️ 发音不标准 | Azure 语音评估 + 逐词评分 + 音素级纠错 |
+| 🌍 缺少语言环境 | 10+ 内置场景对话，AI NPC 角色扮演 |
+| 📅 目标模糊 | 每日"三件事"任务引擎 + 进度热力图 |
+| 🏆 自制力弱 | 成就徽章系统 + 连续打卡激励 |
+
+## 🏗️ 技术架构
+
+```
+┌─────────────────────────────────────────────────────┐
+│               前端 (React + TS + Tailwind)             │
+│  Dashboard │ Tasks │ Pronunciation │ Scenarios │ Progress │ Achievements │
+└─────────────────────┬───────────────────────────────┘
+                      │ HTTP/REST
+┌─────────────────────▼───────────────────────────────┐
+│                  后端 (FastAPI)                        │
+│  /api/asr  /api/pronunciation  /api/tasks  /api/progress  /api/scenarios │
+└──────────────────┬──────────────────────────────────┘
+                   │
+    ┌──────────────┼──────────────┐
+    ▼              ▼              ▼
+┌───────┐  ┌──────────┐  ┌──────────────┐
+│ Agent │  │ RAG 系统  │  │ Azure 语音    │
+│ 5工具  │  │ ChromaDB  │  │ ASR+发音+TTS │
+└───────┘  └──────────┘  └──────────────┘
+    │              │
+    ▼              ▼
+┌─────────────────────────────────┐
+│  LLM (DeepSeek / 智谱 / GPT)    │
+│  Embedding + ChromaDB 向量检索   │
+└─────────────────────────────────┘
+```
+
+### 技术栈
+
+| 层级 | 选型 |
+|------|------|
+| **前端** | React 18 + TypeScript + Tailwind CSS + Vite |
+| **后端** | FastAPI + Pydantic + SQLAlchemy ORM |
+| **Agent** | HermesAgent + 5 工具（记忆/发音/任务/场景/RAG）|
+| **RAG** | ChromaDB + OpenAI Embeddings + 内置语法/发音知识库 |
+| **语音** | Azure Speech SDK (ASR + 发音评估) + Edge TTS |
+| **数据库** | SQLite (开发) / PostgreSQL (生产) |
+| **部署** | Docker + Nginx |
+
+## 🚀 快速开始
+
+### 前置要求
+
+- Python ≥ 3.11
+- Node.js ≥ 18
+- Edge TTS（免费，无需 API Key）
+- Azure Speech（可选，用于发音评估）
+
+### 1. 环境配置
 
 ```bash
+cd Tan同学-AI英语助教
+# 编辑 .env，填入 API Key
+```
+
+### 2. 后端启动
+
+```bash
+# 安装依赖
 uv sync
+
+# 初始化数据库
+python -c "from database.database import init_db; init_db()"
+
+# 加载 RAG 知识库（可选）
+python -c "from rag.document_loader import get_document_loader; get_document_loader().load_all()"
+
+# 启动 API 服务
+uv run uvicorn api.server:app --host 0.0.0.0 --port 8000 --reload
 ```
 
-## 使用
+访问 http://localhost:8000/docs 查看 API 文档。
 
-### 命令行模式
-
-**交互模式**：
-```bash
-uv run python agent.py
-```
-
-**单次执行**：
-```bash
-uv run python agent.py "your task here"
-```
-
-### API 服务模式
-
-**启动服务**：
-```bash
-uv run uvicorn api.server:app --host 0.0.0.0 --port 8000
-```
-
-**或使用 Python**：
-```bash
-uv run python -m api.server
-```
-
-**API 示例**：
-```bash
-# 发送聊天请求
-curl -X POST http://localhost:8000/v1/chat/completions \
-  -H "Content-Type: application/json" \
-  -d '{
-    "model": "hermes",
-    "messages": [{"role": "user", "content": "你好"}],
-    "user_id": "user1"
-  }'
-
-# 清除用户对话历史
-curl -X DELETE http://localhost:8000/v1/users/user1/history
-
-# 获取用户对话历史
-curl http://localhost:8000/v1/users/user1/history
-
-# 列出所有用户
-curl http://localhost:8000/v1/users
-```
-
-## 配置
-
-复制 `.env.example` 到 `.env` 并配置：
+### 3. 前端启动
 
 ```bash
-cp .env.example .env
+cd frontend
+npm install
+npm run dev
 ```
 
-```env
-# API 配置
-OPENAI_API_KEY=your_api_key_here
-OPENAI_BASE_URL=https://api.openai.com/v1
-MODEL=gpt-4o
+访问 http://localhost:5173
 
-# API 服务
-API_HOST=0.0.0.0
-API_PORT=8000
+### 4. Docker 部署（推荐）
 
-# 用户设置
-DEFAULT_USER_ID=default
-MAX_HISTORY_ROUNDS=40
-
-# 调试模式
-DEBUG=false
+```bash
+docker-compose -f deploy/docker-compose.yml up -d
 ```
 
-## 记忆系统
+## 📡 API 端点
 
-### 数据结构
+| 端点 | 说明 |
+|------|------|
+| `POST /v1/chat/completions` | OpenAI 兼容聊天（Agent 5工具）|
+| `POST /api/pronunciation/evaluate` | 发音评估（逐词评分）|
+| `POST /api/asr/transcribe` | 语音转文字 |
+| `GET /api/tasks/daily` | 获取/生成每日任务 |
+| `POST /api/tasks/daily/complete` | 完成子任务 |
+| `POST /api/tasks/diagnosis` | 初始能力诊断 |
+| `GET /api/progress/overview` | 学习进度概览（热力图）|
+| `GET /api/progress/weekly-report` | 周报 |
+| `GET /api/scenarios/list` | 场景列表 |
+| `POST /api/scenarios/start` | 启动场景对话 |
+| `POST /api/tts/audio` | 文字转语音 |
+| `GET /api/achievements/list` | 成就列表 |
+| `POST /api/auth/login` | 用户登录 |
 
-```
-memories/
-├── default/           # 默认用户
-│   ├── MEMORY.md      # 长期记忆（代理笔记）
-│   ├── USER.md        # 用户配置
-│   └── history.json   # 短期对话历史
-├── user1/            # 用户 1
-│   ├── MEMORY.md
-│   ├── USER.md
-│   └── history.json
-└── user2/            # 用户 2
-    ├── MEMORY.md
-    ├── USER.md
-    └── history.json
-```
+## 🧠 Agent 工具
 
-### 长期记忆（MEMORY.md / USER.md）
+| 工具 | 功能 |
+|------|------|
+| `memory` | 持久化学生偏好、薄弱项、学习历史 |
+| `evaluate_pronunciation` | 发音评估，逐词评分 + 音素纠错 |
+| `generate_daily_task` | 基于学生水平动态生成每日任务 |
+| `start_scenario` | 启动 10+ 场景 NPC 对话 |
+| `search_knowledge` | RAG 检索语法规则/发音技巧 |
 
-- `MEMORY.md`：代理的个人笔记（环境事实、项目约定、工具特性）
-- `USER.md`：用户配置（偏好、沟通风格、期望）
-
-记忆工具支持三种操作：
-- `add`：添加新条目
-- `replace`：替换现有条目
-- `remove`：删除条目
-
-### 短期记忆（history.json）
-
-- 存储完整对话历史（OpenAI messages 格式）
-- 每次对话后自动保存
-- 重启后自动恢复
-- 支持通过 API 清除
-
-## API 端点
-
-| 端点 | 方法 | 功能 |
-|------|------|------|
-| `/v1/chat/completions` | POST | OpenAI 兼容的聊天接口 |
-| `/v1/users/{user_id}/history` | GET | 获取用户对话历史 |
-| `/v1/users/{user_id}/history` | DELETE | 清除用户对话历史 |
-| `/v1/users` | GET | 列出所有用户 |
-| `/health` | GET | 健康检查 |
-
-## SOUL.md（代理人格）
-
-SOUL.md 文件用于定义代理的身份、风格和行为方式（全局，所有用户共享）。
-
-**用途**：
-- 定义代理的语气和沟通风格
-- 指定代理应该避免什么
-- 设置代理的默认行为方式
-
-**不属于这里**：
-- 用户特定的记忆（使用 MEMORY.md）
-- 文件路径、命令、端口等（使用 memory 工具保存）
-
-## 项目结构
+## 📁 项目结构
 
 ```
-.
-├── agent.py          # 核心代理实现（HermesAgent 类）
-├── memory.py         # 记忆模块（MemoryStore 类）
-├── api/              # API 服务模块
-│   ├── server.py     # FastAPI 服务器
-│   ├── schemas.py    # Pydantic 数据模型
-│   └── stream.py     # SSE 流式处理
-├── session/          # 会话管理（预留）
-├── SOUL.md           # 代理人格定义（全局）
-├── pyproject.toml    # 项目配置
-├── .env              # 环境变量
-├── .env.example      # 环境变量示例
-└── memories/         # 用户数据目录
-    ├── default/      # 默认用户数据
-    │   ├── MEMORY.md
-    │   ├── USER.md
-    │   └── history.json
-    └── {user_id}/    # 其他用户数据
+Tan同学-AI英语助教/
+├── api/                    # FastAPI 端点 (9路由)
+├── agent.py                # Agent 核心 (5工具)
+├── memory.py               # 文件系统记忆
+├── rag/                    # RAG 系统 (ChromaDB+Embedding)
+├── services/               # Azure ASR/发音/TTS/场景/周报
+├── database/               # SQLAlchemy ORM
+├── frontend/               # React 前端 (6页面)
+├── deploy/                 # Docker 部署
+├── SOUL.md                 # Agent 人格定义
+└── .env                    # 环境配置
 ```
 
-## 技术栈
+## 🎓 求职展示要点
 
-- Python 3.11+
-- FastAPI - Web 框架
-- requests - HTTP 客户端
-- python-dotenv - 环境变量管理
-- Pydantic - 数据验证
+1. **全栈能力**：React + FastAPI + Docker 完整链路
+2. **大模型应用**：Agent 工具调用循环 + Prompt 工程 + RAG
+3. **第三方 API 集成**：Azure 语音评估 / Edge TTS
+4. **工程化思维**：分层架构、数据库设计、API 文档
+5. **产品思维**：从真实痛点出发，设计完整用户体验闭环
 
-## 数据迁移
+## 📝 License
 
-从旧版本升级时，单用户记忆会自动迁移：
+MIT — 开源用于学习交流。
 
-```
-旧版: memories/MEMORY.md
-新版: memories/default/MEMORY.md
-```
+---
 
-## 故障排除
-
-### 调试模式
-
-```env
-DEBUG=true
-```
-
-会输出详细日志：API 请求、响应结构、工具调用、错误跟踪。
-
-### 常见问题
-
-**API 服务无法启动**：
-1. 检查端口是否被占用
-2. 确认依赖已安装：`uv sync`
-
-**用户记忆混淆**：
-1. 每个用户使用不同的 `user_id`
-2. 检查 `memories/{user_id}/` 目录
-
-**对话历史丢失**：
-1. 确认 `user_id` 正确
-2. 检查 `memories/{user_id}/history.json` 是否存在
+> **Tan同学-AI英语助教** — 让每一个英语困难户每天进步一点点 🌟

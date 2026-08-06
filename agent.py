@@ -45,6 +45,10 @@ from audit_log import (
     log_error as audit_log_error
 )
 
+# Import RAG retriever
+from rag.retriever import get_retriever
+from rag.document_loader import DocumentLoader
+
 # Configuration
 MAX_CONTEXT_ROUNDS = int(os.getenv("MAX_CONTEXT_ROUNDS", "40"))
 MAX_TOOL_ITERATIONS = int(os.getenv("MAX_TOOL_ITERATIONS", "8"))
@@ -175,7 +179,107 @@ MEMORY_TOOL = {
     "type": "function",
     "function": MEMORY_TOOL_SCHEMA
 }
-TOOL = [MEMORY_TOOL]
+
+# --- Tan同学-AI英语助教 新增工具 ---
+
+PRONUNCIATION_TOOL = {
+    "type": "function",
+    "function": {
+        "name": "evaluate_pronunciation",
+        "description": "评估用户英语发音，逐词评分并标出问题音素。当用户进行跟读练习或请求发音反馈时使用。",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "text": {
+                    "type": "string",
+                    "description": "用户朗读的目标文本（标准答案）"
+                },
+                "user_transcript": {
+                    "type": "string",
+                    "description": "ASR 转写的用户实际朗读内容（可选，没有则留空）"
+                }
+            },
+            "required": ["text"]
+        }
+    }
+}
+
+TASK_TOOL = {
+    "type": "function",
+    "function": {
+        "name": "generate_daily_task",
+        "description": "基于用户英语水平和近期学习数据，动态生成今日学习任务清单（"今日三件事"）。",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "user_level": {
+                    "type": "string",
+                    "enum": ["beginner", "intermediate", "advanced"],
+                    "description": "用户英语水平等级"
+                },
+                "focus_areas": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "需要重点加强的领域，如 ['pronunciation', 'vocabulary', 'listening']"
+                },
+                "history_summary": {
+                    "type": "string",
+                    "description": "用户近期学习数据摘要（如：最近3天学习了45分钟，发音分65分）"
+                }
+            },
+            "required": ["user_level"]
+        }
+    }
+}
+
+SCENARIO_TOOL = {
+    "type": "function",
+    "function": {
+        "name": "start_scenario",
+        "description": "启动场景对话——AI 扮演对话伙伴，学生自由对话练习口语。支持餐厅、问路、面试等 10+ 场景。",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "scene_type": {
+                    "type": "string",
+                    "enum": ["restaurant", "directions", "classroom", "interview", "travel", "shopping", "hospital", "phone_call", "study_group", "presentation"],
+                    "description": "场景类型"
+                },
+                "difficulty": {
+                    "type": "string",
+                    "enum": ["easy", "medium", "hard"],
+                    "description": "难度级别"
+                }
+            },
+            "required": ["scene_type", "difficulty"]
+        }
+    }
+}
+
+RAG_TOOL = {
+    "type": "function",
+    "function": {
+        "name": "search_knowledge",
+        "description": "从英语知识库中检索语法规则、词汇解释或发音技巧。当学生询问语法、词义或发音规则时使用。",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "query": {
+                    "type": "string",
+                    "description": "检索查询，如 'present perfect tense' 或 'th sound pronunciation'"
+                },
+                "topic": {
+                    "type": "string",
+                    "enum": ["grammar", "vocabulary", "pronunciation"],
+                    "description": "知识主题"
+                }
+            },
+            "required": ["query", "topic"]
+        }
+    }
+}
+
+TOOL = [MEMORY_TOOL, PRONUNCIATION_TOOL, TASK_TOOL, SCENARIO_TOOL, RAG_TOOL]
 
 
 # =============================================================================
@@ -216,20 +320,34 @@ def get_tools_guide():
 跨会话持久化信息，供未来参考。
 
 **何时保存（主动进行，不要等用户要求）：**
-- 用户纠正或说"记住这个"/"不要再那样做"
-- 用户偏好、习惯或个人信息（姓名、角色、时区、编程风格）
-- 环境发现（操作系统、已安装工具、项目结构）
-- 约定、API 特点或工作流特定模式
-- 对未来会话有用的稳定事实
+- 学生纠正你的发音或教学方法
+- 学生的学习偏好、薄弱领域、学习习惯
+- 学生提到的重要个人信息（考试日期、目标分数等）
+- 教学过程中发现的规律性错误
 
-**不要保存：**
-- 任务进度、会话结果或临时待办状态
-- 容易重新发现的琐碎/明显信息
-- 原始数据
+### evaluate_pronunciation
+评估学生英语发音，逐词评分并标出问题音素。
+- 当学生进行跟读练习时使用
+- 当学生请求发音反馈时使用
+- 提供文本内容和学生的 ASR 转写结果
 
-**目标：**
-- user：用户是谁（偏好、沟通风格）
-- memory：你的笔记（环境事实、项目约定、经验教训）"""
+### generate_daily_task
+基于学生英语水平和近期学习数据，动态生成今日学习任务清单。
+- 首次使用或新的一天开始时使用
+- 学生请求"今天学什么"时使用
+- 根据学生薄弱项动态调整任务类型和难度
+
+### start_scenario
+启动场景对话——AI 扮演对话伙伴，学生自由对话练习口语。
+- 支持餐厅、问路、面试等 10+ 场景
+- 三个难度级别：easy（适合初学者）、medium（有一定基础）、hard（进阶挑战）
+- 启动后按 SOUL.md 教学流程进行 NPC 对话
+
+### search_knowledge
+从英语知识库中检索语法规则、词汇解释或发音技巧。
+- 当学生询问语法规则时（topic=grammar）
+- 当学生查询单词含义时（topic=vocabulary）
+- 当学生询问发音技巧时（topic=pronunciation）"""
 
 
 def build_system_prompt(memory_store=None):
@@ -430,6 +548,54 @@ class HermesAgent:
                     "tool_call_id": tc["id"],
                     "content": result
                 })
+            elif func_name == "evaluate_pronunciation":
+                print(f"\033[36mPronunciation: {func_args.get('text', '')[:50]}...\033[0m")
+                result = self._handle_pronunciation_tool(func_args)
+                safe_print(result)
+
+                log_tool_execution(request_id, func_name, "evaluate",
+                                   func_args.get('text', '')[:50], result)
+                audit_log_tool_call(self.user_id, request_id, func_name, "evaluate",
+                                    func_args.get('text', '')[:50], func_args, result, True)
+
+                results.append({"role": "tool", "tool_call_id": tc["id"], "content": result})
+
+            elif func_name == "generate_daily_task":
+                print(f"\033[33mTask: generating for level={func_args.get('user_level', 'beginner')}\033[0m")
+                result = self._handle_task_tool(func_args)
+                safe_print(result[:200])
+
+                log_tool_execution(request_id, func_name, "generate",
+                                   func_args.get('user_level', ''), result[:200])
+                audit_log_tool_call(self.user_id, request_id, func_name, "generate",
+                                    func_args.get('user_level', ''), func_args, result[:200], True)
+
+                results.append({"role": "tool", "tool_call_id": tc["id"], "content": result})
+
+            elif func_name == "start_scenario":
+                print(f"\033[32mScenario: {func_args.get('scene_type', 'unknown')}\033[0m")
+                result = self._handle_scenario_tool(func_args)
+                safe_print(result[:200])
+
+                log_tool_execution(request_id, func_name, "start",
+                                   func_args.get('scene_type', ''), result[:200])
+                audit_log_tool_call(self.user_id, request_id, func_name, "start",
+                                    func_args.get('scene_type', ''), func_args, result[:200], True)
+
+                results.append({"role": "tool", "tool_call_id": tc["id"], "content": result})
+
+            elif func_name == "search_knowledge":
+                print(f"\033[34mRAG: searching {func_args.get('topic', '')} -> {func_args.get('query', '')[:50]}\033[0m")
+                result = self._handle_rag_tool(func_args)
+                safe_print(result[:200])
+
+                log_tool_execution(request_id, func_name, "search",
+                                   func_args.get('query', '')[:50], result[:200])
+                audit_log_tool_call(self.user_id, request_id, func_name, "search",
+                                    func_args.get('query', '')[:50], func_args, result[:200], True)
+
+                results.append({"role": "tool", "tool_call_id": tc["id"], "content": result})
+
             else:
                 error = json.dumps({"error": f"Unknown tool: {func_name}"})
                 print(f"\033[31m{error}\033[0m")
@@ -441,6 +607,138 @@ class HermesAgent:
                 })
 
         return results
+
+    def _handle_pronunciation_tool(self, args: dict) -> str:
+        """处理发音评估工具调用"""
+        text = args.get("text", "")
+        user_transcript = args.get("user_transcript", "")
+
+        # 返回标准化的发音反馈格式
+        feedback = {
+            "tool": "evaluate_pronunciation",
+            "text": text,
+            "user_transcript": user_transcript,
+            "message": "请在发音评估 API 端点 (/api/pronunciation/evaluate) 提交音频进行评估。这里为您生成示范朗读。",
+            "suggestion": "请学生朗读以上文本，系统将逐词评分并标出发音问题。"
+        }
+        return json.dumps(feedback, ensure_ascii=False, indent=2)
+
+    def _handle_task_tool(self, args: dict) -> str:
+        """处理每日任务生成工具调用"""
+        user_level = args.get("user_level", "beginner")
+        focus_areas = args.get("focus_areas", [])
+        history_summary = args.get("history_summary", "")
+
+        # 按级别生成任务模板
+        task_templates = {
+            "beginner": [
+                {"title": "学习 5 个新单词（含发音跟读）", "type": "vocab", "duration_min": 8},
+                {"title": "跟读 2 个常用句子", "type": "speaking", "duration_min": 5},
+                {"title": "听力练习：听写 1 段短对话", "type": "listening", "duration_min": 7},
+            ],
+            "intermediate": [
+                {"title": "学习 8 个新单词（含例句造句）", "type": "vocab", "duration_min": 10},
+                {"title": "跟读 3 个长句（重点：连读、重音）", "type": "speaking", "duration_min": 8},
+                {"title": "完成 1 次场景对话（自选场景）", "type": "speaking", "duration_min": 10},
+            ],
+            "advanced": [
+                {"title": "阅读 1 篇英文短文并回答问题", "type": "reading", "duration_min": 12},
+                {"title": "收听 1 段 3 分钟播客并复述大意", "type": "listening", "duration_min": 10},
+                {"title": "自由对话：选择一个场景即兴交流", "type": "speaking", "duration_min": 8},
+            ],
+        }
+
+        tasks = task_templates.get(user_level, task_templates["beginner"])
+        total_minutes = sum(t["duration_min"] for t in tasks)
+
+        result = {
+            "tool": "generate_daily_task",
+            "user_level": user_level,
+            "focus_areas": focus_areas,
+            "tasks": tasks,
+            "total_estimated_minutes": total_minutes,
+            "tip": "建议按顺序完成，每项任务完成后记得打卡哦！",
+            "history_note": history_summary[:100] if history_summary else "",
+        }
+        return json.dumps(result, ensure_ascii=False, indent=2)
+
+    def _handle_scenario_tool(self, args: dict) -> str:
+        """处理场景对话工具调用"""
+        scene_type = args.get("scene_type", "restaurant")
+        difficulty = args.get("difficulty", "easy")
+
+        from services.scenario_service import get_scenario_service
+        service = get_scenario_service()
+        scenario = service.get_scenario(scene_type)
+
+        if not scenario:
+            return json.dumps({"error": f"未知场景: {scene_type}"}, ensure_ascii=False)
+
+        result = {
+            "tool": "start_scenario",
+            "scene_type": scene_type,
+            "scene_name": scenario["name"],
+            "difficulty": difficulty,
+            "roles": scenario["roles"],
+            "learning_goals": scenario["learning_goals"],
+            "opening_prompt": scenario["opening_prompt"],
+            "instruction": "请用 NPC 的角色开始对话。NPC 全程使用英文，教师提示使用中文。遵循 SOUL.md 中的教学流程。",
+        }
+        return json.dumps(result, ensure_ascii=False, indent=2)
+
+    def _handle_rag_tool(self, args: dict) -> str:
+        """处理知识检索工具调用"""
+        query = args.get("query", "")
+        topic = args.get("topic", "grammar")
+
+        try:
+            retriever = get_retriever()
+            results = retriever.search(query, topic, k=3)
+
+            if results:
+                formatted = retriever.format_for_prompt(results, topic)
+                return json.dumps({
+                    "tool": "search_knowledge",
+                    "query": query,
+                    "topic": topic,
+                    "results_count": len(results),
+                    "knowledge": formatted,
+                }, ensure_ascii=False, indent=2)
+            else:
+                # 回退：从预置规则中查找
+                loader = DocumentLoader()
+                if topic == "grammar":
+                    rules = loader.get_grammar_rules()
+                    matches = [r for r in rules if query.lower() in r["text"].lower()][:3]
+                    return json.dumps({
+                        "tool": "search_knowledge",
+                        "query": query,
+                        "topic": topic,
+                        "results_count": len(matches),
+                        "knowledge": "\n".join(m["text"] for m in matches),
+                    }, ensure_ascii=False, indent=2)
+                elif topic == "pronunciation":
+                    tips = loader.get_pronunciation_tips()
+                    matches = [t for t in tips if query.lower() in t["text"].lower()][:3]
+                    return json.dumps({
+                        "tool": "search_knowledge",
+                        "query": query,
+                        "topic": topic,
+                        "results_count": len(matches),
+                        "knowledge": "\n".join(m["text"] for m in matches),
+                    }, ensure_ascii=False, indent=2)
+
+                return json.dumps({
+                    "tool": "search_knowledge",
+                    "query": query,
+                    "topic": topic,
+                    "results_count": 0,
+                    "knowledge": "未找到相关知识条目。建议使用通用英语知识回答。",
+                }, ensure_ascii=False, indent=2)
+
+        except Exception as e:
+            logger.error(f"RAG 检索异常: {e}")
+            return json.dumps({"error": f"知识检索失败: {str(e)}"}, ensure_ascii=False)
 
     def _make_api_call(self, request_id: str, messages: list) -> dict:
         """
