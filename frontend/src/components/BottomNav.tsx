@@ -1,10 +1,9 @@
 import { NavLink, useLocation } from 'react-router-dom'
-import { Home, CheckSquare, Mic, MessageCircle, BarChart3, Trophy } from 'lucide-react'
+import { Home, CheckSquare, MessageCircle, BarChart3 } from 'lucide-react'
 
 const navItems = [
   { to: '/', icon: Home, label: '看板' },
   { to: '/tasks', icon: CheckSquare, label: '任务' },
-  { to: '/pronunciation', icon: Mic, label: '发音' },
   { to: '/scenario', icon: MessageCircle, label: '对话' },
   { to: '/progress', icon: BarChart3, label: '进度' },
 ]

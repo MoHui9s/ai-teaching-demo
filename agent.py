@@ -182,33 +182,11 @@ MEMORY_TOOL = {
 
 # --- Tan同学-AI英语助教 新增工具 ---
 
-PRONUNCIATION_TOOL = {
-    "type": "function",
-    "function": {
-        "name": "evaluate_pronunciation",
-        "description": "评估用户英语发音，逐词评分并标出问题音素。当用户进行跟读练习或请求发音反馈时使用。",
-        "parameters": {
-            "type": "object",
-            "properties": {
-                "text": {
-                    "type": "string",
-                    "description": "用户朗读的目标文本（标准答案）"
-                },
-                "user_transcript": {
-                    "type": "string",
-                    "description": "ASR 转写的用户实际朗读内容（可选，没有则留空）"
-                }
-            },
-            "required": ["text"]
-        }
-    }
-}
-
 TASK_TOOL = {
     "type": "function",
     "function": {
         "name": "generate_daily_task",
-        "description": "基于用户英语水平和近期学习数据，动态生成今日学习任务清单（"今日三件事"）。",
+        "description": "基于用户英语水平和近期学习数据，动态生成今日学习任务清单(“今日三件事”)。",
         "parameters": {
             "type": "object",
             "properties": {
@@ -279,7 +257,7 @@ RAG_TOOL = {
     }
 }
 
-TOOL = [MEMORY_TOOL, PRONUNCIATION_TOOL, TASK_TOOL, SCENARIO_TOOL, RAG_TOOL]
+TOOL = [MEMORY_TOOL, TASK_TOOL, SCENARIO_TOOL, RAG_TOOL]
 
 
 # =============================================================================
@@ -324,12 +302,6 @@ def get_tools_guide():
 - 学生的学习偏好、薄弱领域、学习习惯
 - 学生提到的重要个人信息（考试日期、目标分数等）
 - 教学过程中发现的规律性错误
-
-### evaluate_pronunciation
-评估学生英语发音，逐词评分并标出问题音素。
-- 当学生进行跟读练习时使用
-- 当学生请求发音反馈时使用
-- 提供文本内容和学生的 ASR 转写结果
 
 ### generate_daily_task
 基于学生英语水平和近期学习数据，动态生成今日学习任务清单。
@@ -548,18 +520,6 @@ class HermesAgent:
                     "tool_call_id": tc["id"],
                     "content": result
                 })
-            elif func_name == "evaluate_pronunciation":
-                print(f"\033[36mPronunciation: {func_args.get('text', '')[:50]}...\033[0m")
-                result = self._handle_pronunciation_tool(func_args)
-                safe_print(result)
-
-                log_tool_execution(request_id, func_name, "evaluate",
-                                   func_args.get('text', '')[:50], result)
-                audit_log_tool_call(self.user_id, request_id, func_name, "evaluate",
-                                    func_args.get('text', '')[:50], func_args, result, True)
-
-                results.append({"role": "tool", "tool_call_id": tc["id"], "content": result})
-
             elif func_name == "generate_daily_task":
                 print(f"\033[33mTask: generating for level={func_args.get('user_level', 'beginner')}\033[0m")
                 result = self._handle_task_tool(func_args)
@@ -608,28 +568,38 @@ class HermesAgent:
 
         return results
 
-    def _handle_pronunciation_tool(self, args: dict) -> str:
-        """处理发音评估工具调用"""
-        text = args.get("text", "")
-        user_transcript = args.get("user_transcript", "")
-
-        # 返回标准化的发音反馈格式
-        feedback = {
-            "tool": "evaluate_pronunciation",
-            "text": text,
-            "user_transcript": user_transcript,
-            "message": "请在发音评估 API 端点 (/api/pronunciation/evaluate) 提交音频进行评估。这里为您生成示范朗读。",
-            "suggestion": "请学生朗读以上文本，系统将逐词评分并标出发音问题。"
+    def _call_llm_direct(self, prompt: str) -> str:
+        """单次 LLM 调用（不走 tool loop），用于轻量内容生成"""
+        headers = {
+            "Authorization": f"Bearer {api_key}",
+            "Content-Type": "application/json"
         }
-        return json.dumps(feedback, ensure_ascii=False, indent=2)
+        payload = {
+            "model": MODEL,
+            "messages": [
+                {"role": "system", "content": "你是一个专业的AI英语教学助手。只返回要求的JSON格式，不要添加任何额外说明。"},
+                {"role": "user", "content": prompt}
+            ],
+            "max_tokens": 1024,
+            "temperature": 0.7,
+        }
+
+        try:
+            response = requests.post(chat_url, headers=headers, json=payload, timeout=60)
+            response.raise_for_status()
+            data = response.json()
+            return data["choices"][0]["message"]["content"].strip()
+        except Exception as e:
+            logger.error(f"LLM 直接调用失败: {e}")
+            raise
 
     def _handle_task_tool(self, args: dict) -> str:
-        """处理每日任务生成工具调用"""
+        """处理每日任务生成工具调用（LLM 动态生成 + 模板 fallback）"""
         user_level = args.get("user_level", "beginner")
         focus_areas = args.get("focus_areas", [])
         history_summary = args.get("history_summary", "")
 
-        # 按级别生成任务模板
+        # 模板 fallback
         task_templates = {
             "beginner": [
                 {"title": "学习 5 个新单词（含发音跟读）", "type": "vocab", "duration_min": 8},
@@ -648,8 +618,41 @@ class HermesAgent:
             ],
         }
 
-        tasks = task_templates.get(user_level, task_templates["beginner"])
-        total_minutes = sum(t["duration_min"] for t in tasks)
+        tasks = None
+        total_minutes = 0
+        generated = False
+
+        # 尝试 LLM 动态生成
+        try:
+            focus_str = "、".join(focus_areas) if focus_areas else "综合提升"
+            prompt = f"""基于以下学生信息生成今日 3 个英语学习任务：
+- 英语等级：{user_level}（beginner=初级/intermediate=中级/advanced=高级）
+- 重点提升领域：{focus_str}
+- 近期学习摘要：{history_summary if history_summary else "新学生，暂无数据"}
+
+要求：
+1. 每个任务包含 title（中文描述，具体有趣）、type（vocab/speaking/listening/reading）、duration_min（整数分钟）
+2. 根据薄弱领域调整任务类型比例
+3. 总时长控制在 15-30 分钟
+4. 只返回纯 JSON 数组，格式：[{{"title":"...", "type":"...", "duration_min":N}}, ...]"""
+
+            llm_response = self._call_llm_direct(prompt)
+            # 清理可能的 markdown 代码块包裹
+            llm_response = llm_response.strip()
+            if llm_response.startswith("```"):
+                lines = llm_response.split("\n")
+                llm_response = "\n".join(lines[1:-1] if lines[-1].strip() == "```" else lines[1:])
+            tasks = json.loads(llm_response)
+            if isinstance(tasks, list) and len(tasks) > 0:
+                total_minutes = sum(t.get("duration_min", 0) for t in tasks)
+                generated = True
+                logger.info(f"LLM 动态生成 {len(tasks)} 个任务")
+        except Exception as e:
+            logger.warning(f"LLM 任务生成失败，使用模板: {e}")
+
+        if not generated:
+            tasks = task_templates.get(user_level, task_templates["beginner"])
+            total_minutes = sum(t["duration_min"] for t in tasks)
 
         result = {
             "tool": "generate_daily_task",
@@ -657,6 +660,7 @@ class HermesAgent:
             "focus_areas": focus_areas,
             "tasks": tasks,
             "total_estimated_minutes": total_minutes,
+            "generated_by": "llm" if generated else "template",
             "tip": "建议按顺序完成，每项任务完成后记得打卡哦！",
             "history_note": history_summary[:100] if history_summary else "",
         }

@@ -1,5 +1,7 @@
 """每日任务端点"""
 
+import os
+import json
 import logging
 from datetime import date, datetime
 from typing import List, Optional
@@ -25,6 +27,68 @@ from api.schemas import (
 logger = logging.getLogger("edulingua-tasks")
 
 router = APIRouter(prefix="/api/tasks", tags=["Tasks"])
+
+
+def _generate_tasks_with_llm(level: str, user_id: str = "") -> Optional[List[dict]]:
+    """使用 LLM 动态生成每日任务，失败返回 None"""
+    try:
+        import requests
+
+        api_key = os.getenv("OPENAI_API_KEY")
+        base_url = os.getenv("OPENAI_BASE_URL", "https://api.deepseek.com")
+        model = os.getenv("MODEL", "deepseek-v4-flash")
+
+        if not api_key:
+            logger.warning("未配置 LLM API Key，跳过动态任务生成")
+            return None
+
+        base_url = base_url.rstrip("/")
+        chat_url = base_url + "/chat/completions" if not base_url.endswith("/v1") else base_url + "/chat/completions"
+        if "/chat/completions" not in chat_url:
+            chat_url = base_url.rstrip("/") + "/chat/completions"
+
+        prompt = f"""基于以下学生信息生成今日 3 个英语学习任务：
+- 英语等级：{level}（beginner=初级/intermediate=中级/advanced=高级）
+- 学生 ID：{user_id}
+
+要求：
+1. 每个任务包含 title（中文描述，具体有趣）、type（vocab/speaking/listening/reading）、duration_min（整数分钟）
+2. 针对 {level} 级别调整任务难度
+3. 总时长控制在 15-30 分钟
+4. 只返回纯 JSON 数组，格式：[{{"title":"...", "type":"...", "duration_min":N}}, ...]"""
+
+        headers = {
+            "Authorization": f"Bearer {api_key}",
+            "Content-Type": "application/json"
+        }
+        payload = {
+            "model": model,
+            "messages": [
+                {"role": "system", "content": "你是一个专业的AI英语教学助手。只返回要求的JSON格式，不要添加任何额外说明。"},
+                {"role": "user", "content": prompt}
+            ],
+            "max_tokens": 1024,
+            "temperature": 0.7,
+        }
+
+        response = requests.post(chat_url, headers=headers, json=payload, timeout=60)
+        response.raise_for_status()
+        data = response.json()
+        content = data["choices"][0]["message"]["content"].strip()
+
+        # 清理 markdown 代码块
+        if content.startswith("```"):
+            lines = content.split("\n")
+            content = "\n".join(lines[1:-1] if lines[-1].strip() == "```" else lines[1:])
+
+        tasks = json.loads(content)
+        if isinstance(tasks, list) and len(tasks) > 0:
+            logger.info(f"LLM 动态生成 {len(tasks)} 个任务: user={user_id}, level={level}")
+            return tasks
+    except Exception as e:
+        logger.warning(f"LLM 任务生成失败，将使用模板: {e}")
+
+    return None
 
 # 默认每日任务模板（按级别）
 DEFAULT_TASKS = {
@@ -80,10 +144,10 @@ async def get_daily_tasks(user_id: str = "default"):
                 }
             )
 
-        # 未生成任务：根据用户水平自动生成
+        # 未生成任务：LLM 动态生成，失败则 fallback 模板
         user = db.query(User).filter(User.user_id == user_id).first()
         level = user.level if user else "beginner"
-        tasks = DEFAULT_TASKS.get(level, DEFAULT_TASKS["beginner"])
+        tasks = _generate_tasks_with_llm(level, user_id) or DEFAULT_TASKS.get(level, DEFAULT_TASKS["beginner"])
 
         new_task = DailyTaskModel(
             user_id=user.id if user else 1,

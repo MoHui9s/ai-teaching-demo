@@ -24,12 +24,11 @@ from logging_config import log_user_action
 from api.tts import router as tts_router
 from api.admin import router as admin_router
 from api.auth import router as auth_router
-from api.asr import router as asr_router
-from api.pronunciation import router as pronunciation_router
 from api.tasks import router as tasks_router
 from api.progress import router as progress_router
 from api.achievements import router as achievements_router
 from api.scenarios import router as scenarios_router
+from api.asr import router as asr_router
 
 # 数据库
 from database.database import init_db
@@ -39,7 +38,7 @@ logger = logging.getLogger("edulingua-api")
 
 app = FastAPI(
     title="Tan同学-AI英语助教 API",
-    description="AI驱动的全栈英语学习系统 — 每日任务 + 发音评估 + 场景对话 + 进度看板",
+    description="AI驱动的全栈英语学习系统 — 每日任务 + 场景对话 + 语音识别 + 进度看板 + 成就系统",
     version="2.0.0"
 )
 
@@ -64,6 +63,23 @@ async def startup_check():
     except Exception as e:
         logger.error(f"数据库初始化失败: {e}")
 
+    # 自动加载 RAG 知识库
+    try:
+        from rag.document_loader import get_document_loader
+        loader = get_document_loader()
+        loader.load_all()
+        logger.info("RAG 知识库初始化完成（8 语法规则 + 7 发音技巧）")
+    except Exception as e:
+        logger.warning(f"RAG 知识库初始化失败（将使用回退检索）: {e}")
+
+    # 启动定时任务调度器
+    try:
+        from services.scheduler import start_scheduler
+        start_scheduler()
+        logger.info("定时任务调度器已启动")
+    except Exception as e:
+        logger.warning(f"定时任务调度器启动失败: {e}")
+
     logger.info(f"Tan同学-AI英语助教 v{VERSION} 启动完成")
 
 
@@ -80,12 +96,11 @@ app.add_middleware(
 app.include_router(tts_router)                # /api/tts/*
 app.include_router(admin_router)              # /api/admin/*
 app.include_router(auth_router)               # /api/auth/*
-app.include_router(asr_router)                # /api/asr/*
-app.include_router(pronunciation_router)      # /api/pronunciation/*
 app.include_router(tasks_router)              # /api/tasks/*
 app.include_router(progress_router)           # /api/progress/*
 app.include_router(achievements_router)       # /api/achievements/*
 app.include_router(scenarios_router)          # /api/scenarios/*
+app.include_router(asr_router)                # /api/asr/*
 
 # Agent 缓存
 _agents: Dict[str, HermesAgent] = {}
@@ -130,12 +145,11 @@ async def root():
         "endpoints": {
             "chat": "/v1/chat/completions",
             "tts": "/api/tts/*",
-            "asr": "/api/asr/*",
-            "pronunciation": "/api/pronunciation/*",
             "tasks": "/api/tasks/*",
             "progress": "/api/progress/*",
             "achievements": "/api/achievements/*",
             "scenarios": "/api/scenarios/*",
+            "asr": "/api/asr/*",
             "auth": "/api/auth/*",
         }
     }

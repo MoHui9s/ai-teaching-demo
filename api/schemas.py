@@ -126,35 +126,6 @@ class DiagnosisResponse(BaseModel):
 
 
 # =============================================================================
-# 发音评估
-# =============================================================================
-
-class PronunciationRequest(BaseModel):
-    """发音评估请求"""
-    text: str = Field(..., description="目标文本")
-    audio_data: Optional[str] = Field(default=None, description="Base64 编码的音频数据")
-    mode: str = Field(default="evaluate", description="evaluate / demo")
-
-
-class WordScore(BaseModel):
-    """逐词评分"""
-    word: str
-    score: float  # 0-100
-    phonemes: List[str] = []
-
-
-class PronunciationResponse(BaseModel):
-    """发音评估响应"""
-    overall_score: float  # 0-100
-    accuracy_score: float
-    fluency_score: float
-    word_scores: List[WordScore] = []
-    wrong_phonemes: List[Dict[str, str]] = []  # [{"phoneme": "th", "word": "think", "suggestion": "..."}]
-    demo_audio_url: str = ""
-    encouragement: str = ""  # AI 鼓励语
-
-
-# =============================================================================
 # 场景对话
 # =============================================================================
 

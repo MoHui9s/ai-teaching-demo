@@ -13,12 +13,12 @@ dependencies = [
     "edge-tts>=7.2.8",
     "bcrypt>=5.0.0",
     "pyjwt>=2.13.0",
-    "plyvel>=1.5.1",
     "sqlalchemy>=2.0.0",
     "chromadb>=0.5.0",
     "openai>=1.0.0",
     "apscheduler>=3.10.0",
-    "azure-cognitiveservices-speech>=1.37.0",
+    # azure-cognitiveservices-speech 为可选依赖（发音评估需要）
+    # 安装: pip install azure-cognitiveservices-speech
 ]
 
 [build-system]

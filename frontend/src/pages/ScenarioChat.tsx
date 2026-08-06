@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
-import { scenarios } from '../api/client'
-import { MessageCircle, Send, Camera } from 'lucide-react'
+import { scenarios, chat } from '../api/client'
+import { MessageCircle, Send } from 'lucide-react'
 
 const DIFFICULTIES = [
   { value: 'easy', label: '简单', color: 'bg-green-100 text-green-700' },
@@ -16,6 +16,7 @@ export default function ScenarioChat() {
   const [opening, setOpening] = useState('')
   const [messages, setMessages] = useState<{ role: string; content: string }[]>([])
   const [input, setInput] = useState('')
+  const [loading, setLoading] = useState(false)
 
   useEffect(() => {
     scenarios.list().then(res => {
@@ -37,17 +38,34 @@ export default function ScenarioChat() {
     }
   }
 
-  const handleSend = () => {
-    if (!input.trim()) return
-    setMessages(prev => [...prev, { role: 'user', content: input }])
-    // 模拟 NPC 回复（实际应调用 chat completions）
-    setTimeout(() => {
+  const handleSend = async () => {
+    if (!input.trim() || loading) return
+
+    const userMsg = { role: 'user', content: input }
+    setMessages(prev => [...prev, userMsg])
+    setInput('')
+    setLoading(true)
+
+    try {
+      const scene = sceneList.find(s => s.id === selectedScene)
+      const systemMsg = {
+        role: 'system',
+        content: `你现在扮演场景对话中的 NPC。场景：${scene?.name || selectedScene}。角色：${scene?.roles?.join(' 和 ') || '对话伙伴'}。学习目标：${scene?.learning_goals?.join('、') || '口语练习'}。开场提示：${opening}。请全程使用英文与学生对话，友好耐心。对话结束后用中文简要给出 1-2 条语法或表达建议。`
+      }
+      const allMessages = [systemMsg, ...messages, userMsg]
+
+      const res = await chat.send(allMessages)
+      const reply = res.choices?.[0]?.message?.content || "Sorry, I didn't catch that. Could you say it again?"
+      setMessages(prev => [...prev, { role: 'assistant', content: reply }])
+    } catch (e) {
+      console.error('场景对话请求失败', e)
       setMessages(prev => [...prev, {
         role: 'assistant',
-        content: `📢 NPC: ${input.includes('?') ? "That's a good question!" : "I see. Let me help you with that."}\n\n📝 教师提示: This is a good starting point — keep practicing! | 这是一个不错的开始——继续练习！`
+        content: 'Sorry, there was a connection problem. Please try sending your message again. | 抱歉，连接出现问题，请重试。'
       }])
-    }, 800)
-    setInput('')
+    } finally {
+      setLoading(false)
+    }
   }
 
   if (!started) {
@@ -141,9 +159,10 @@ export default function ScenarioChat() {
             onChange={e => setInput(e.target.value)}
             onKeyDown={e => e.key === 'Enter' && handleSend()}
             className="input-field flex-1"
-            placeholder="输入你的对话..."
+            placeholder={loading ? "AI 正在回复..." : "输入你的对话..."}
+            disabled={loading}
           />
-          <button onClick={handleSend} className="btn-primary px-4">
+          <button onClick={handleSend} disabled={loading} className="btn-primary px-4 disabled:opacity-50">
             <Send size={18} />
           </button>
         </div>

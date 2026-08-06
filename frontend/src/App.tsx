@@ -2,7 +2,6 @@ import { Routes, Route, Navigate } from 'react-router-dom'
 import { useState, useEffect } from 'react'
 import Dashboard from './pages/Dashboard'
 import DailyTasks from './pages/DailyTasks'
-import Pronunciation from './pages/Pronunciation'
 import ScenarioChat from './pages/ScenarioChat'
 import Progress from './pages/Progress'
 import Achievements from './pages/Achievements'
@@ -29,7 +28,6 @@ function App() {
       <Routes>
         <Route path="/" element={<Dashboard />} />
         <Route path="/tasks" element={<DailyTasks />} />
-        <Route path="/pronunciation" element={<Pronunciation />} />
         <Route path="/scenario" element={<ScenarioChat />} />
         <Route path="/progress" element={<Progress />} />
         <Route path="/achievements" element={<Achievements />} />

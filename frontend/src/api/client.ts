@@ -51,28 +51,12 @@ export const tasks = {
     }),
 }
 
-// Pronunciation
-export const pronunciation = {
-  evaluate: (text: string, audioBase64: string) =>
-    request<{
-      overall_score: number; accuracy_score: number; fluency_score: number;
-      word_scores: { word: string; score: number }[];
-      wrong_phonemes: { phoneme: string; word: string; suggestion: string }[];
-      demo_audio_url: string; encouragement: string;
-    }>('/api/pronunciation/evaluate', {
+// Chat (Agent)
+export const chat = {
+  send: (messages: { role: string; content: string }[], userId = 'default') =>
+    request<{ choices: { message: { content: string } }[] }>('/v1/chat/completions', {
       method: 'POST',
-      body: JSON.stringify({ text, audio_data: audioBase64, mode: 'evaluate' }),
-    }),
-  getTips: () =>
-    request<{ tips: any[] }>('/api/pronunciation/tips'),
-}
-
-// ASR
-export const asr = {
-  transcribe: (audioBase64: string) =>
-    request<{ text: string; confidence: number }>('/api/asr/transcribe', {
-      method: 'POST',
-      body: JSON.stringify({ audio_data: audioBase64 }),
+      body: JSON.stringify({ messages, user_id: userId, model: 'tan-english-tutor' }),
     }),
 }
 

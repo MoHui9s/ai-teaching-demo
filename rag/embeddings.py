@@ -1,9 +1,8 @@
-"""RAG 系统 —— Embedding 生成"""
+"""RAG 系统 —— Embedding 生成（支持 OpenAI / 百炼 DashScope / 智谱 等兼容 API）"""
 
 import os
 import logging
 from typing import List, Optional
-from pathlib import Path
 
 logger = logging.getLogger("rag-embeddings")
 
@@ -17,28 +16,25 @@ except ImportError:
 
 
 class EmbeddingService:
-    """Embedding 向量生成服务"""
+    """Embedding 向量生成服务
+
+    通过 OpenAI 兼容接口调用 Embedding 模型。
+    已测试兼容：OpenAI / 阿里云百炼 DashScope (text-embedding-v4)
+    """
 
     def __init__(self):
         self.api_key = os.getenv("OPENAI_API_KEY", "")
         self.base_url = os.getenv("OPENAI_BASE_URL", "https://api.openai.com/v1")
-        self.model = os.getenv("EMBEDDING_MODEL", "text-embedding-3-small")
-
-        # 修正 base_url 用于 embeddings 端点
-        if "/chat/completions" in self.base_url:
-            self.embed_url = self.base_url.replace("/chat/completions", "/embeddings")
-        elif self.base_url.endswith("/v1") or self.base_url.endswith("/v3"):
-            self.embed_url = self.base_url.rstrip("/") + "/embeddings"
-        else:
-            self.embed_url = self.base_url.rstrip("/") + "/embeddings"
+        self.model = os.getenv("EMBEDDING_MODEL", "text-embedding-v4")
 
         self.available = bool(self.api_key) and OPENAI_AVAILABLE
 
         if self.available:
+            # OpenAI SDK 会自动在 base_url 后追加 /embeddings
             self.client = OpenAI(api_key=self.api_key, base_url=self.base_url)
-            logger.info(f"Embedding 服务已配置 (model={self.model})")
+            logger.info(f"Embedding 服务已配置 (model={self.model}, base_url={self.base_url})")
         else:
-            logger.warning("Embedding 服务未配置，使用稀疏向量模拟")
+            logger.warning("Embedding 服务未配置（缺少 API Key 或 SDK），使用稀疏向量模拟")
 
     def embed(self, texts: List[str]) -> List[List[float]]:
         """
@@ -48,7 +44,7 @@ class EmbeddingService:
             texts: 文本列表
 
         Returns:
-            向量列表，每个 1536 维（text-embedding-3-small）
+            向量列表，维度取决于模型（text-embedding-v4 默认 1024 维）
         """
         if not self.available:
             return self._mock_embed(texts)
@@ -56,12 +52,12 @@ class EmbeddingService:
         try:
             response = self.client.embeddings.create(
                 model=self.model,
-                input=texts
+                input=texts,
             )
             return [d.embedding for d in response.data]
 
         except Exception as e:
-            logger.error(f"Embedding 生成失败: {e}")
+            logger.warning(f"Embedding API 调用失败（将使用模拟向量）: {e}")
             return self._mock_embed(texts)
 
     def embed_query(self, query: str) -> List[float]:
@@ -70,11 +66,14 @@ class EmbeddingService:
         return results[0] if results else []
 
     def _mock_embed(self, texts: List[str]) -> List[List[float]]:
-        """模拟 Embedding（使用简单 hash，仅用于开发）"""
+        """模拟 Embedding（MD5 hash，仅用于 Embedding API 不可用时的回退）
+
+        注意：模拟向量不支持语义搜索，ChromaDB 检索将降级为关键词匹配。
+        要启用真正的语义搜索，请在 .env 中配置有效的 OPENAI_API_KEY。
+        """
         import hashlib
         results = []
         for text in texts:
-            # 使用 MD5 生成 128 维模拟向量
             h = hashlib.md5(text.encode()).digest()
             vec = [float(b) / 255.0 for b in h] * 12  # 扩展为 ~1536 维
             results.append(vec[:1536])
