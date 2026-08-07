@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react'
 import { scenarios, chat } from '../api/client'
 import { MessageCircle, Send } from 'lucide-react'
+import AudioPlayButton from '../components/AudioPlayButton'
+import VoiceInputButton from '../components/VoiceInputButton'
 
 const DIFFICULTIES = [
   { value: 'easy', label: '简单', color: 'bg-green-100 text-green-700' },
@@ -146,6 +148,11 @@ export default function ScenarioChat() {
                 : 'bg-gray-100 text-gray-800'
             }`}>
               <div className="whitespace-pre-wrap">{msg.content}</div>
+              {msg.role === 'assistant' && (
+                <div className="mt-2 flex justify-end">
+                  <AudioPlayButton text={msg.content} size={14} />
+                </div>
+              )}
             </div>
           </div>
         ))}
@@ -153,7 +160,12 @@ export default function ScenarioChat() {
 
       {/* Input */}
       <div className="p-4 border-t bg-white">
-        <div className="flex gap-2">
+        <div className="flex gap-2 items-center">
+          <VoiceInputButton
+            onTranscript={(text) => setInput(prev => prev ? prev + ' ' + text : text)}
+            disabled={loading}
+            size={20}
+          />
           <input
             value={input}
             onChange={e => setInput(e.target.value)}

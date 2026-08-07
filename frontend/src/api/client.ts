@@ -104,6 +104,27 @@ export const progress = {
     request<{ success: boolean; data: any }>(`/api/progress/reports?user_id=${userId || getUserId()}`),
 }
 
+// ASR (语音转文字)
+export const asr = {
+  transcribe: async (audioBlob: Blob, language = 'en') => {
+    const formData = new FormData()
+    formData.append('audio', audioBlob, 'recording.webm')
+    const token = getToken()
+    const headers: Record<string, string> = {}
+    if (token) headers['Authorization'] = `Bearer ${token}`
+    const res = await fetch(`${API_BASE}/api/asr/transcribe?language=${language}`, {
+      method: 'POST',
+      body: formData,
+      headers,
+    })
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ detail: 'ASR 转写失败' }))
+      throw new Error(err.detail || `ASR HTTP ${res.status}`)
+    }
+    return res.json()
+  },
+}
+
 // Achievements
 export const achievements = {
   list: (userId?: string) =>

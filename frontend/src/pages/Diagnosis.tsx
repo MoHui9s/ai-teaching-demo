@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { tasks } from '../api/client'
 import { useNavigate } from 'react-router-dom'
 import { Sparkles, ArrowRight } from 'lucide-react'
+import AudioPlayButton from '../components/AudioPlayButton'
 
 // 简易诊断题目
 const VOCAB_QUESTIONS = [
@@ -11,8 +12,8 @@ const VOCAB_QUESTIONS = [
 ]
 
 const LISTENING_QUESTIONS = [
-  { question: '听到 "Hello, how are you?" 应该回答？', options: ['I\'m fine, thank you', 'My name is Tom', 'Goodbye'], answer: 0 },
-  { question: '听到 "What time is it?" 在问什么？', options: ['日期', '时间', '天气'], answer: 1 },
+  { question: '听到 "Hello, how are you?" 应该回答？', options: ['I\'m fine, thank you', 'My name is Tom', 'Goodbye'], answer: 0, audio: 'Hello, how are you?' },
+  { question: '听到 "What time is it?" 在问什么？', options: ['日期', '时间', '天气'], answer: 1, audio: 'What time is it?' },
 ]
 
 export default function Diagnosis() {
@@ -89,9 +90,12 @@ export default function Diagnosis() {
         <div className="space-y-4">
           {VOCAB_QUESTIONS.map((q, i) => (
             <div key={i} className="card">
-              <label className="text-sm text-gray-500 mb-1 block">
-                提示：{q.hint}
-              </label>
+              <div className="flex items-center justify-between mb-1">
+                <label className="text-sm text-gray-500">
+                  提示：{q.hint}
+                </label>
+                <AudioPlayButton text={q.word} size={16} />
+              </div>
               <input
                 type="text"
                 className="input-field"
@@ -121,7 +125,10 @@ export default function Diagnosis() {
         <div className="space-y-4">
           {LISTENING_QUESTIONS.map((q, qi) => (
             <div key={qi} className="card">
-              <p className="font-medium mb-3">{q.question}</p>
+              <div className="flex items-center justify-between mb-3">
+                <p className="font-medium">{q.question}</p>
+                <AudioPlayButton text={q.audio} size={16} />
+              </div>
               <div className="space-y-2">
                 {q.options.map((opt, oi) => (
                   <button

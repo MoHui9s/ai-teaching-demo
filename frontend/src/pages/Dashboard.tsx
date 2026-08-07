@@ -3,12 +3,14 @@ import { tasks } from '../api/client'
 import { useNavigate } from 'react-router-dom'
 import { Flame, Clock, Target, BookOpen, ChevronRight, Sparkles, Mic, MessageCircle, LogOut } from 'lucide-react'
 import OnboardingGuide from '../components/OnboardingGuide'
+import StudyTimer from '../components/StudyTimer'
 
 interface DashboardProps {
   onLogout: () => void
+  todayMinutes: number
 }
 
-export default function Dashboard({ onLogout }: DashboardProps) {
+export default function Dashboard({ onLogout, todayMinutes }: DashboardProps) {
   const [dailyTasks, setDailyTasks] = useState<any>(null)
   const [progress, setProgress] = useState<any>(null)
   const [loading, setLoading] = useState(true)
@@ -36,7 +38,6 @@ export default function Dashboard({ onLogout }: DashboardProps) {
   }
 
   const streak = progress?.streak_days || 0
-  const todayMinutes = dailyTasks?.time_spent || 0
   const taskContent = dailyTasks?.task_content || []
   const completed = taskContent.filter((t: any) => t.status === 'done').length
   const isNewUser = dailyTasks?.onboarding === true

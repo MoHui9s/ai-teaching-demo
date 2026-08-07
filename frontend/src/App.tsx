@@ -8,9 +8,11 @@ import Achievements from './pages/Achievements'
 import Diagnosis from './pages/Diagnosis'
 import Login from './pages/Login'
 import BottomNav from './components/BottomNav'
+import { useStudyTimer } from './hooks/useStudyTimer'
 
 function App() {
   const [token, setToken] = useState<string | null>(localStorage.getItem('edulingua_token'))
+  const { todayMinutes } = useStudyTimer(token)
 
   const handleLogin = (newToken: string, userId: string) => {
     setToken(newToken)
@@ -39,7 +41,7 @@ function App() {
   return (
     <div className="max-w-lg mx-auto min-h-screen pb-20">
       <Routes>
-        <Route path="/" element={<Dashboard onLogout={handleLogout} />} />
+        <Route path="/" element={<Dashboard onLogout={handleLogout} todayMinutes={todayMinutes} />} />
         <Route path="/tasks" element={<DailyTasks />} />
         <Route path="/scenario" element={<ScenarioChat />} />
         <Route path="/progress" element={<Progress />} />

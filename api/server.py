@@ -155,6 +155,37 @@ async def root():
     }
 
 
+# 非英语学习关键词（API 层拦截，节省 LLM 调用费用）
+NON_ENGLISH_KEYWORDS = [
+    # 数学
+    '微积分', '线性代数', '概率论', '数学题', '解方程', '几何', '三角函数',
+    # 编程
+    '写代码', '写一个', '编程', 'debug', 'Python代码', 'Java代码', '帮我写', '前端页面', '后端接口',
+    'leetcode', '算法题', '数据结构',
+    # 物理/化学
+    '物理', '化学', '牛顿', '量子', '分子式', '化学方程式',
+    # 其他
+    '历史', '地理', '政治', '生物',
+]
+
+def _is_off_topic(user_message: str) -> bool:
+    """检测用户消息是否明显与英语学习无关"""
+    msg_lower = user_message.lower()
+    # 英语学习相关白名单词（有这些词的不拦截，避免误杀）
+    english_white_list = ['英语', '英文', 'english', '单词', '语法', '发音', '口语',
+                          '听力', '阅读', '写作', '翻译', '四级', '六级', '雅思',
+                          '托福', '考研', '词汇', '句子', '对话', '跟读', '听写',
+                          'hello', 'hi', 'what', 'how', 'why', 'when', 'where',
+                          'thank', 'sorry', 'please', 'yes', 'no', 'ok']
+    for w in english_white_list:
+        if w in msg_lower:
+            return False
+    for kw in NON_ENGLISH_KEYWORDS:
+        if kw in msg_lower:
+            return True
+    return False
+
+
 @app.post("/v1/chat/completions")
 async def chat_completions(request: ChatRequest):
     """
@@ -172,6 +203,28 @@ async def chat_completions(request: ChatRequest):
         last_message = request.messages[-1]
         if last_message.role != "user":
             raise HTTPException(status_code=400, detail="最后一条消息必须是用户消息")
+
+        # 关键词拦截：非英语学习请求直接拒绝，不调用 LLM
+        if _is_off_topic(last_message.content):
+            logger.info(f"拦截非英语请求: user={request.user_id}, msg={last_message.content[:80]}")
+            return ChatCompletion(
+                id=generate_completion_id(),
+                created=int(time.time()),
+                model=request.model,
+                choices=[{
+                    "index": 0,
+                    "message": {
+                        "role": "assistant",
+                        "content": "抱歉，我是专为英语学习设计的AI助教，只能辅导英语相关的内容。如果你有英语学习方面的问题（词汇、语法、发音、口语、听力、阅读、写作、考试等），我很乐意帮你！"
+                    },
+                    "finish_reason": "stop"
+                }],
+                usage={
+                    "prompt_tokens": 0,
+                    "completion_tokens": 0,
+                    "total_tokens": 0
+                }
+            )
 
         response_text = agent.chat(last_message.content)
 

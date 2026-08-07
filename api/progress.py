@@ -18,6 +18,7 @@ from database.models import (
     DailyProgress, WeeklyReport,
 )
 from api.schemas import ProgressOverview, WeeklyReportResponse, APIResponse
+from pydantic import BaseModel
 from api._user_sync import ensure_orm_user
 
 logger = logging.getLogger("edulingua-progress")
@@ -210,6 +211,72 @@ async def get_all_reports(user_id: str = "default"):
         success=True,
         data={"reports": reports}
     )
+
+
+class HeartbeatRequest(BaseModel):
+    """心跳请求"""
+    seconds: int = 30
+
+
+@router.post("/heartbeat", response_model=APIResponse)
+async def heartbeat(request: HeartbeatRequest, user_id: str = "default"):
+    """
+    学习计时心跳
+
+    客户端每 30 秒发送一次心跳，后端累加真实学习时长到 DailyProgress。
+
+    Args:
+        request: 心跳请求，含本次间隔秒数
+        user_id: 用户标识
+
+    Returns:
+        今日累计分钟数
+    """
+    today = date.today()
+    db = get_db_session()
+
+    try:
+        user = db.query(User).filter(User.user_id == user_id).first()
+        if not user:
+            return APIResponse(success=True, message="用户不存在", data=None)
+
+        minutes = request.seconds / 60.0
+
+        # Upsert DailyProgress — 今日学习快照
+        progress = db.query(DailyProgress).filter(
+            DailyProgress.user_id == user.id,
+            DailyProgress.date == today
+        ).first()
+
+        if progress:
+            progress.total_minutes = (progress.total_minutes or 0) + minutes
+        else:
+            progress = DailyProgress(
+                user_id=user.id,
+                date=today,
+                total_minutes=minutes,
+                streak_days=0,
+            )
+            db.add(progress)
+
+        # 同步累加今日 DailyTask.time_spent
+        daily_task = db.query(DailyTask).filter(
+            DailyTask.user_id == user.id,
+            DailyTask.date == today
+        ).first()
+        if daily_task:
+            daily_task.time_spent = (daily_task.time_spent or 0) + round(minutes)
+
+        db.commit()
+
+        return APIResponse(
+            success=True,
+            message=f"已记录 {minutes:.1f} 分钟",
+            data={"today_minutes": round(progress.total_minutes, 1)}
+        )
+
+    finally:
+        db.close()
 
 
 def _calculate_streak(db: Session, user_pk: int) -> int:

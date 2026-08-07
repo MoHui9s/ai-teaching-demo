@@ -233,7 +233,6 @@ async def complete_task(request: TaskCompleteRequest, user_id: str = "default"):
 
         task_content[request.task_index]["status"] = "done"
         task.task_content = task_content
-        task.time_spent += request.time_spent_min
 
         # 所有任务完成
         if all(t.get("status") == "done" for t in task_content):
