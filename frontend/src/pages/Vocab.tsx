@@ -71,6 +71,9 @@ export default function Vocab() {
       localStorage.setItem(`vocab_unknown_${level}`, JSON.stringify([...next]))
     }
 
+    // 后端持久化（fire-and-forget，不阻塞闪卡切换）
+    vocab.recordProgress(word, level, type === 'known').catch(() => {})
+
     // 自动跳到下一个
     if (currentIndex < words.length - 1) {
       setTimeout(() => {

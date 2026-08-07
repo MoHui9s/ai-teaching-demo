@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { reading } from '../api/client'
-import { ChevronLeft, CheckCircle, XCircle } from 'lucide-react'
+import { ChevronLeft, CheckCircle, XCircle, Eye } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import AudioPlayButton from '../components/AudioPlayButton'
 
@@ -25,7 +25,19 @@ export default function Reading() {
   const [selectedArticle, setSelectedArticle] = useState<Article | null>(null)
   const [userAnswers, setUserAnswers] = useState<number[]>([])
   const [checkResult, setCheckResult] = useState<CheckResult | null>(null)
+  const [readSet, setReadSet] = useState<Set<string>>(() => {
+    try {
+      return new Set(JSON.parse(localStorage.getItem('reading_read') || '[]'))
+    } catch { return new Set() }
+  })
   const navigate = useNavigate()
+
+  const markRead = (articleId: string) => {
+    const next = new Set(readSet)
+    next.add(articleId)
+    setReadSet(next)
+    localStorage.setItem('reading_read', JSON.stringify([...next]))
+  }
 
   useEffect(() => {
     loadArticles(level)
@@ -54,7 +66,7 @@ export default function Reading() {
     if (!selectedArticle) return
     try {
       const res = await reading.checkAnswers(selectedArticle.id, userAnswers, level)
-      if (res?.data) setCheckResult(res.data)
+      if (res?.data) { setCheckResult(res.data); markRead(selectedArticle.id) }
     } catch (e) {
       console.error('检查答案失败', e)
     }
@@ -108,8 +120,10 @@ export default function Reading() {
                 className="card w-full text-left hover:bg-blue-50 transition-colors"
               >
                 <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 rounded-lg bg-primary-100 flex items-center justify-center text-primary-600 text-sm font-bold">
-                    {i + 1}
+                  <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-sm font-bold ${
+                    readSet.has(a.id) ? 'bg-green-100 text-green-600' : 'bg-primary-100 text-primary-600'
+                  }`}>
+                    {readSet.has(a.id) ? <Eye size={14} /> : i + 1}
                   </div>
                   <div className="flex-1 min-w-0">
                     <h3 className="font-medium text-sm truncate">{a.title}</h3>

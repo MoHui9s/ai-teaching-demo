@@ -83,5 +83,56 @@
         "answer": 1
       }
     ]
+  },
+  {
+    "id": "i6",
+    "title": "The Importance of Sleep",
+    "content": "Sleep is one of the most essential activities for our health, yet many people do not get enough of it. Scientists recommend that adults sleep between seven and nine hours each night, but busy schedules, stress, and screen time often get in the way.\n\nWhy is sleep so important? While we sleep, our brains are hard at work. During deep sleep, the brain processes and stores information we learned during the day. This is why students who get enough sleep tend to perform better on exams. The brain also cleans itself during sleep, removing harmful waste products that build up during waking hours. Without enough sleep, this cleaning process is disrupted, which may increase the risk of brain diseases over time.\n\nSleep is equally important for our physical health. Our bodies repair muscles and tissues while we rest. The immune system becomes stronger, helping us fight off illnesses. Lack of sleep, on the other hand, has been linked to weight gain, high blood pressure, and a higher risk of heart disease. In fact, studies show that people who regularly sleep less than six hours per night are more likely to develop serious health problems.\n\nSo what can you do to improve your sleep? Experts suggest keeping a consistent sleep schedule, even on weekends. Avoid looking at phone or computer screens at least one hour before bed, since the blue light can trick your brain into thinking it is still daytime. Creating a calming bedtime routine — such as reading a book, listening to soft music, or taking a warm bath — can also help you fall asleep faster and sleep more deeply. Making sleep a priority is one of the best investments you can make in your long-term health.",
+    "questions": [
+      {
+        "question": "What happens to information we learn during the day while we sleep?",
+        "options": ["It is completely forgotten", "The brain processes and stores it", "It only stays for one hour", "It turns into dreams"],
+        "answer": 1
+      },
+      {
+        "question": "What is a suggested way to improve sleep quality?",
+        "options": ["Exercise right before bed", "Avoid screens at least one hour before bed", "Drink coffee in the evening", "Sleep at different times each day"],
+        "answer": 1
+      }
+    ]
+  },
+  {
+    "id": "i7",
+    "title": "How Social Media Affects Our Lives",
+    "content": "Social media has become a huge part of modern life. Platforms like Instagram, TikTok, and WeChat are used by billions of people every day. While these tools offer many benefits, they also come with serious drawbacks that we should be aware of.\n\nOn the positive side, social media helps us stay connected with friends and family, no matter where they live. People can share important life moments, exchange ideas, and support each other through difficult times. Social media also provides access to information and learning opportunities. Many people follow educational accounts, join hobby groups, or discover new career paths through online communities. For small businesses and artists, these platforms offer a powerful way to reach customers and build an audience.\n\nHowever, there is a darker side to social media. Studies have found that spending too much time on these platforms can lead to anxiety and depression. People often compare their own lives to the carefully edited highlights of others, which can create feelings of inadequacy. In addition, social media can be highly addictive. The endless scrolling and notifications are designed to keep users engaged for as long as possible, sometimes at the cost of sleep, work, or real-world relationships. Misinformation is another major problem — false news spreads up to six times faster on social media than true stories do.\n\nSo how should we approach social media? The key is balance. Setting time limits, curating your feed to include positive content, and taking regular breaks can help reduce the negative effects. Social media is a tool, and like any tool, its impact depends on how we use it. Being mindful and intentional about our habits is the best way to enjoy the benefits while minimizing the harm.",
+    "questions": [
+      {
+        "question": "What is one negative effect of social media mentioned in the text?",
+        "options": ["It improves sleep quality", "It can lead to anxiety and depression", "It helps people save money", "It reduces screen time"],
+        "answer": 1
+      },
+      {
+        "question": "How fast does false news spread compared to true stories on social media?",
+        "options": ["At the same speed", "Up to six times faster", "Half as fast", "Ten times slower"],
+        "answer": 1
+      }
+    ]
+  },
+  {
+    "id": "i8",
+    "title": "Volunteering Abroad",
+    "content": "Last summer, I made a decision that changed my life: I signed up to volunteer at a primary school in a small village in Kenya. I had always wanted to travel and give back at the same time, and this program seemed like the perfect opportunity.\n\nThe first few days were overwhelming. The village was very different from my hometown — there was no running water, electricity was limited, and I could barely communicate in Swahili, the local language. I remember feeling lost and wondering if I had made a mistake. But the warmth of the local people quickly made me feel welcome. The children were especially curious and excited to meet someone from another country.\n\nMy main job was helping the local teacher with English lessons. The children were eager to learn, and their progress amazed me every week. But I think I learned just as much from them. They taught me about their culture, their traditional songs, and the importance of community. In the afternoons, we played football together using a ball made from old plastic bags. Those simple moments brought us closer than any classroom lesson ever could.\n\nVolunteering abroad taught me that you do not need to be rich or an expert to make a difference. Sometimes, just showing up and caring is enough. I returned home with a new perspective on what truly matters in life — relationships, gratitude, and the willingness to step outside your comfort zone. If you are considering volunteering abroad, I encourage you to take the leap. It will challenge you in unexpected ways, and you will come back a different person.",
+    "questions": [
+      {
+        "question": "Where did the author volunteer?",
+        "options": ["At a hospital in India", "At a primary school in Kenya", "At a farm in Brazil", "At a library in Thailand"],
+        "answer": 1
+      },
+      {
+        "question": "What lesson did the author learn from the volunteering experience?",
+        "options": ["You need to be rich to help others", "Only experts can make a difference", "Learning a new language is impossible", "Showing up and caring is often enough to make a difference"],
+        "answer": 3
+      }
+    ]
   }
 ]

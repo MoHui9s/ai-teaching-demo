@@ -6,7 +6,7 @@ import logging
 import base64
 from datetime import date, datetime
 from typing import List, Optional
-from fastapi import APIRouter, HTTPException, Depends, UploadFile, File, Form
+from fastapi import APIRouter, HTTPException, Depends, UploadFile, File, Form, Query
 from sqlalchemy.orm import Session
 
 import sys
@@ -31,6 +31,14 @@ from api._user_sync import ensure_orm_user
 logger = logging.getLogger("edulingua-tasks")
 
 router = APIRouter(prefix="/api/tasks", tags=["Tasks"])
+
+# 听写材料路径
+DICTATION_DIR = Path(__file__).parent.parent / "data" / "dictation"
+DICTATION_FILES = {
+    "beginner": DICTATION_DIR / "beginner.json",
+    "intermediate": DICTATION_DIR / "intermediate.json",
+    "advanced": DICTATION_DIR / "advanced.json",
+}
 
 
 def _generate_tasks_with_llm(level: str, user_id: str = "") -> Optional[List[dict]]:
@@ -573,4 +581,30 @@ async def check_dictation(request: DictationCheckRequest, user_id: str = "defaul
             "user_input": user_input,
             "reference_text": reference_text,
         }
+    )
+
+
+@router.get("/dictation/materials", response_model=APIResponse)
+async def get_dictation_materials(
+    level: str = Query("beginner", description="级别: beginner / intermediate / advanced"),
+    count: int = Query(5, description="返回句子数量"),
+):
+    """获取听写练习材料"""
+    file_path = DICTATION_FILES.get(level)
+    if not file_path or not file_path.exists():
+        return APIResponse(success=False, message=f"暂无听写材料: {level}")
+
+    try:
+        with open(file_path, "r", encoding="utf-8") as f:
+            all_materials = json.load(f)
+    except Exception as e:
+        return APIResponse(success=False, message=f"加载听写材料失败: {e}")
+
+    import random
+    selected = random.sample(all_materials, min(count, len(all_materials)))
+
+    return APIResponse(
+        success=True,
+        message=f"已加载 {len(selected)} 条听写材料",
+        data={"materials": selected, "level": level, "total_available": len(all_materials)},
     )

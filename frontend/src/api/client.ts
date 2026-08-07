@@ -171,6 +171,13 @@ export const reading = {
 export const vocab = {
   list: (level = 'beginner', count = 20) =>
     request<{ success: boolean; data: { words: { word: string; chinese: string; example: string }[]; total_available: number; level: string } }>(`/api/vocab/list?level=${level}&count=${count}`),
+  recordProgress: (word: string, level: string, known: boolean) =>
+    request<{ success: boolean }>('/api/vocab/progress', {
+      method: 'POST',
+      body: JSON.stringify({ word, level, known }),
+    }),
+  getStats: () =>
+    request<{ success: boolean; data: { total_learned: number; total_marked: number; known_count: number; unknown_count: number; by_level: Record<string, { known: number; unknown: number }> } }>('/api/vocab/stats'),
 }
 
 // Achievements

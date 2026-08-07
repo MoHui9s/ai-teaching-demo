@@ -133,6 +133,18 @@ class WeeklyReport(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
 
 
+class VocabProgress(Base):
+    """词汇学习进度"""
+    __tablename__ = "vocab_progress"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    word = Column(String(100), nullable=False)
+    level = Column(String(20), nullable=False)  # beginner / intermediate / advanced
+    known = Column(Boolean, default=False)       # True=认识, False=不认识
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+
 # 预置成就列表
 PRESET_ACHIEVEMENTS = [
     {"type": "streak_3", "name": "初露锋芒", "description": "连续学习 3 天"},

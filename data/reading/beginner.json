@@ -83,5 +83,56 @@
         "answer": 2
       }
     ]
+  },
+  {
+    "id": "b6",
+    "title": "My First Day at University",
+    "content": "My name is Anna. Yesterday was my first day at university. I was very nervous in the morning. My parents drove me to the campus. The university is big and beautiful. There are many tall buildings and green trees everywhere.\n\nFirst, we went to the dormitory. I live in room 302 on the third floor. My roommate is a girl named Sarah. She is from a different city. She is friendly and helpful. We spent the morning making our room look nice.\n\nAfter lunch, we had a campus tour. A senior student showed us the library, the cafeteria, and the sports center. The library is very large. It has thousands of books and many study rooms.\n\nIn the afternoon, I went to my first class. The professor was kind. He told us about the course and gave us a reading list. I sat next to Sarah, and we took notes together.\n\nNow I feel more comfortable. University life seems exciting. I am ready to learn and make new friends!",
+    "questions": [
+      {
+        "question": "Where does Anna live on campus?",
+        "options": ["Room 302 on the third floor", "Room 203 on the second floor", "Room 302 on the second floor", "Room 402 on the fourth floor"],
+        "answer": 0
+      },
+      {
+        "question": "What did the students see during the campus tour?",
+        "options": ["The library, the hospital, and the park", "The library, the cafeteria, and the sports center", "The museum, the cafeteria, and the gym", "The library, the theater, and the garden"],
+        "answer": 1
+      }
+    ]
+  },
+  {
+    "id": "b7",
+    "title": "Shopping at the Supermarket",
+    "content": "Every Saturday morning, I go shopping at the supermarket with my mother. Before we leave, we always make a shopping list. This helps us remember everything we need. My mother keeps the list on the refrigerator.\n\nThe supermarket is only five minutes from our home. When we arrive, we take a shopping cart. First, we go to the fruit and vegetable section. My mother checks each apple and tomato to make sure they are fresh. We buy bananas, oranges, carrots, and lettuce.\n\nNext, we go to the meat and dairy section. We get some chicken, eggs, and milk. My mother always looks at the prices. She likes to find the best value for our money.\n\nThen we visit the bakery. The bread smells so good! We buy a fresh loaf of whole wheat bread. Sometimes my mother lets me choose a small treat, like a cookie or a muffin.\n\nFinally, we go to the checkout counter. The cashier scans all our items and tells us the total. My mother pays with cash. We put everything into our shopping bags and walk home. I enjoy this time with my mother every week.",
+    "questions": [
+      {
+        "question": "What do they do before going to the supermarket?",
+        "options": ["Have breakfast", "Make a shopping list", "Call a friend", "Check the weather"],
+        "answer": 1
+      },
+      {
+        "question": "Where do they go first in the supermarket?",
+        "options": ["The bakery", "The meat and dairy section", "The checkout counter", "The fruit and vegetable section"],
+        "answer": 3
+      }
+    ]
+  },
+  {
+    "id": "b8",
+    "title": "A Day at the Beach",
+    "content": "Last Saturday was a hot and sunny day. My family decided to go to the beach. We packed our bags with towels, snacks, and cold drinks. We also brought sunscreen, sunglasses, and a big beach umbrella. The drive took about thirty minutes.\n\nWhen we arrived, the beach was already crowded. Many families were there. We found a good spot near the water. My father set up the umbrella, and my mother laid out the towels.\n\nMy little brother and I ran to the water right away. The water was cool and refreshing. We splashed and played for a long time. My brother also built a big sandcastle with a small flag on top.\n\nAfter swimming, I walked along the beach to collect shells. I found some beautiful white and pink shells. I put them in a small bucket to take home.\n\nAt noon, we had a picnic under the umbrella. We ate sandwiches, fruit, and chips. After lunch, we rested on the towels. We watched the waves come and go. In the evening, the sun began to set. The sky turned orange and pink. It was a perfect end to a wonderful day.",
+    "questions": [
+      {
+        "question": "What did the little brother build on the beach?",
+        "options": ["A sandcastle", "A boat", "A sand tunnel", "A wall"],
+        "answer": 0
+      },
+      {
+        "question": "What did they eat for lunch?",
+        "options": ["Pizza and juice", "Sandwiches, fruit, and chips", "Hamburgers and fries", "Hot dogs and soda"],
+        "answer": 1
+      }
+    ]
   }
 ]

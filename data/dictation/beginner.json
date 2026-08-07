@@ -1,0 +1,12 @@
+[
+  {"id": "d1", "text": "Good morning, how are you today?", "hint": "问候语"},
+  {"id": "d2", "text": "I like to read books in the evening.", "hint": "爱好"},
+  {"id": "d3", "text": "She goes to school by bus every day.", "hint": "日常通勤"},
+  {"id": "d4", "text": "There is a big tree in the garden.", "hint": "地点描述"},
+  {"id": "d5", "text": "My father works in a hospital near our home.", "hint": "家人职业"},
+  {"id": "d6", "text": "Can you help me carry these books?", "hint": "请求帮助"},
+  {"id": "d7", "text": "The weather is very nice and warm today.", "hint": "天气"},
+  {"id": "d8", "text": "We had a wonderful time at the party.", "hint": "活动感受"},
+  {"id": "d9", "text": "Please open the window, it is hot in here.", "hint": "请求"},
+  {"id": "d10", "text": "I usually get up at seven o'clock.", "hint": "日常作息"}
+]

@@ -9,6 +9,7 @@ import Diagnosis from './pages/Diagnosis'
 import History from './pages/History'
 import Vocab from './pages/Vocab'
 import Reading from './pages/Reading'
+import Pronunciation from './pages/Pronunciation'
 import Login from './pages/Login'
 import BottomNav from './components/BottomNav'
 import { useStudyTimer } from './hooks/useStudyTimer'
@@ -61,6 +62,7 @@ function App() {
         <Route path="/history" element={<History />} />
         <Route path="/vocab" element={<Vocab />} />
         <Route path="/reading" element={<Reading />} />
+        <Route path="/pronunciation" element={<Pronunciation />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
       <BottomNav />

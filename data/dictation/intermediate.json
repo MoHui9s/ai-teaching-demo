@@ -1,0 +1,12 @@
+[
+  {"id": "d11", "text": "I have been learning English for about two years now.", "hint": "学习经历"},
+  {"id": "d12", "text": "Would you mind helping me carry these bags upstairs?", "hint": "请求帮助"},
+  {"id": "d13", "text": "The restaurant was quite crowded when we arrived yesterday evening.", "hint": "场景描述"},
+  {"id": "d14", "text": "She suggested that we should leave earlier to avoid the traffic.", "hint": "建议"},
+  {"id": "d15", "text": "The movie was interesting, but the ending was a little disappointing.", "hint": "观点表达"},
+  {"id": "d16", "text": "I have never been to that museum, but I really want to go someday.", "hint": "愿望"},
+  {"id": "d17", "text": "Could you possibly explain that point again? I didn't quite follow.", "hint": "课堂用语"},
+  {"id": "d18", "text": "The weather forecast says it might rain later this afternoon.", "hint": "天气预测"},
+  {"id": "d19", "text": "We should probably book the tickets in advance, just to be safe.", "hint": "建议"},
+  {"id": "d20", "text": "Despite the heavy rain, the outdoor concert went on as planned.", "hint": "转折关系"}
+]

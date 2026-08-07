@@ -83,5 +83,56 @@
         "answer": 2
       }
     ]
+  },
+  {
+    "id": "a6",
+    "title": "The Ethics of Gene Editing",
+    "content": "The advent of CRISPR-Cas9 technology has fundamentally transformed the landscape of genetic engineering, rendering what was once a laborious and imprecise endeavor remarkably accessible and accurate. Scientists can now edit DNA sequences with unprecedented precision, raising the tantalizing prospect of eradicating hereditary diseases such as cystic fibrosis, Huntington's disease, and sickle cell anemia. Yet this extraordinary power is accompanied by profound ethical quandaries that society has scarcely begun to address in a systematic manner.\n\nThe most contentious application of gene editing concerns human germline modification — alterations made to embryos, eggs, or sperm that would be heritable across generations. Proponents argue that we have a moral imperative to relieve future generations of devastating genetic conditions. Critics, however, caution that once we begin modifying the human germline, we embark upon a slippery slope toward designer babies, where genetic enhancements for intelligence, physical appearance, or athletic ability could become commodities available primarily to the affluent. This prospect raises the specter of a biologically entrenched class divide, a dystopian vision in which genetic privilege compounds socioeconomic privilege.\n\nThe regulatory landscape remains fragmented and inconsistent across jurisdictions. In 2018, a Chinese scientist shocked the international community by announcing the birth of twin girls whose genomes he had edited using CRISPR, provoking widespread condemnation and calls for a global moratorium on heritable gene editing. While some nations have enacted stringent prohibitions, others maintain permissive frameworks that could attract medical tourism and create regulatory havens. The World Health Organization has since established a global registry for human genome editing research, but enforcement mechanisms remain woefully inadequate.\n\nBeyond the human applications, gene editing raises ecological and agricultural considerations of equal gravity. Gene drives — mechanisms that can rapidly propagate modified traits through entire wild populations — offer the potential to eliminate malaria-carrying mosquitoes or control invasive species. However, releasing self-propagating genetic modifications into complex ecosystems carries unpredictable and potentially irreversible consequences. The precautionary principle suggests we should proceed with extreme caution, yet the very urgency of the problems these technologies could address argues against indefinite delay.",
+    "questions": [
+      {
+        "question": "What is the most contentious application of gene editing according to the text?",
+        "options": ["Agricultural modification", "Human germline modification", "Animal experimentation", "Bacterial research"],
+        "answer": 1
+      },
+      {
+        "question": "What concern do critics raise about designer babies?",
+        "options": ["The technology is not precise enough", "It could create a biologically entrenched class divide", "It would eliminate all diseases", "Governments would ban it entirely"],
+        "answer": 1
+      }
+    ]
+  },
+  {
+    "id": "a7",
+    "title": "Space Exploration: Is It Worth the Cost?",
+    "content": "The debate over space exploration funding represents one of the most persistent and philosophically charged disputes in public policy. NASA's annual budget exceeds twenty billion dollars, while private ventures such as SpaceX and Blue Origin command billions more in investment. Proponents frame space exploration as humanity's most ambitious and noble undertaking, while detractors contend that these vast sums could be better deployed addressing terrestrial afflictions such as poverty, disease, and climate change.\n\nAdvocates marshal an impressive catalog of tangible benefits that have emerged from space programs. Satellite technology — a direct outgrowth of space research — underpins modern telecommunications, weather forecasting, GPS navigation, and environmental monitoring. Medical innovations including improved prosthetics, water purification systems, and diagnostic imaging techniques trace their origins to space agency research. Furthermore, the pursuit of space exploration has consistently catalyzed advances in materials science, robotics, and computing that permeate everyday life. Economists estimate that every dollar invested in space research yields a return of between seven and fourteen dollars in economic activity, a multiplier that compares favorably with most other forms of government expenditure.\n\nOn the other side of the ledger, skeptics emphasize the opportunity cost with considerable force. The budget for a single Mars mission could fund malaria eradication programs, provide clean water to millions, or substantially accelerate renewable energy deployment. Critics argue that the technological spin-offs often cited as justification represent an inefficient mechanism for achieving innovation — direct investment in medical research or clean energy would likely produce superior returns. Moreover, the environmental toll of rocket launches, which release substantial quantities of carbon dioxide and other pollutants into the upper atmosphere, introduces an uncomfortable tension for those concerned about terrestrial climate degradation.\n\nThe resolution of this debate may ultimately hinge on one's philosophical disposition toward risk and ambition. Space exploration embodies a fundamentally forward-looking orientation — a conviction that humanity's long-term survival requires becoming a multi-planetary species. Whether this imperative justifies the immediate sacrifice of resources that could alleviate present suffering remains a question that technical analysis alone cannot resolve.",
+    "questions": [
+      {
+        "question": "What economic return does the text claim for every dollar invested in space research?",
+        "options": ["Two to three dollars", "Five to six dollars", "Seven to fourteen dollars", "Twenty to thirty dollars"],
+        "answer": 2
+      },
+      {
+        "question": "What philosophical question does the debate ultimately hinge on?",
+        "options": ["Whether aliens exist", "Whether long-term survival justifies immediate sacrifice", "Whether rockets are safe enough", "Whether private companies should lead exploration"],
+        "answer": 1
+      }
+    ]
+  },
+  {
+    "id": "a8",
+    "title": "The Psychology of Procrastination",
+    "content": "Procrastination is a near-universal human experience, yet its persistence in the face of negative consequences presents something of a psychological puzzle. If humans are fundamentally rational actors who pursue pleasure and avoid pain, why do so many of us systematically delay tasks despite knowing that postponement will exacerbate stress and diminish the quality of our output? The answer, as contemporary research reveals, lies not in poor time management but in the intricate interplay between emotion and cognition.\n\nThe dominant psychological framework for understanding procrastination is temporal discounting — the tendency to value immediate rewards disproportionately over future ones, a phenomenon colloquially described as present bias. When confronted with a task that evokes anxiety, boredom, or self-doubt, the anticipation of negative affect triggers an avoidance response. The immediate relief of deferring the task functions as a powerful negative reinforcer, strengthening the procrastination habit even as the long-term costs accumulate. Neuroscientific studies using functional MRI have demonstrated that when chronic procrastinators contemplate future tasks, their amygdala — the brain region associated with emotional processing and threat detection — exhibits heightened activation, suggesting that procrastination represents, at its core, an emotion regulation failure rather than a motivational deficit.\n\nThe consequences of chronic procrastination extend well beyond missed deadlines. Longitudinal research has documented associations between habitual procrastination and elevated stress levels, compromised immune function, diminished academic and professional achievement, and increased incidence of depression and anxiety. Paradoxically, many procrastinators report that they work best under pressure, a belief that is belied by empirical evidence consistently showing that time pressure degrades both the quality and creativity of output. This self-deception compounds the problem by providing a narrative that rationalizes dysfunctional behavior.\n\nEffective interventions target the emotional root of procrastination rather than merely exhorting greater discipline. Techniques such as timeboxing — allocating specific, non-negotiable periods for tasks — reduce the cognitive burden of deciding when to begin. Breaking overwhelming projects into discrete, concrete actions diminishes the anxiety that fuels avoidance. Perhaps most powerfully, cultivating self-compassion rather than self-criticism in the face of procrastination has been shown to reduce its recurrence, as shame and guilt tend to intensify the very negative emotions that drive the avoidance cycle. The path to overcoming procrastination begins not with harsher self-discipline but with a more forgiving and strategically structured approach to work.",
+    "questions": [
+      {
+        "question": "According to the text, what is the core cause of procrastination?",
+        "options": ["Poor time management skills", "An emotion regulation failure", "Low intelligence", "Excessive free time"],
+        "answer": 1
+      },
+      {
+        "question": "What does the text suggest is the most effective approach to overcoming procrastination?",
+        "options": ["Stricter deadlines and punishment", "Targeting the emotional root and cultivating self-compassion", "Working longer hours", "Avoiding all difficult tasks"],
+        "answer": 1
+      }
+    ]
   }
 ]

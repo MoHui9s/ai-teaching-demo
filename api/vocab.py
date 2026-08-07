@@ -5,10 +5,13 @@ import logging
 import random
 from pathlib import Path
 from fastapi import APIRouter, Query
+from pydantic import BaseModel
 
 import sys
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
+from database.database import get_db_session
+from database.models import User, VocabProgress
 from api.schemas import APIResponse
 
 logger = logging.getLogger("edulingua-vocab")
@@ -73,3 +76,85 @@ async def get_vocab_list(
             "level": level,
         },
     )
+
+
+class VocabProgressRequest(BaseModel):
+    """词汇标记请求"""
+    word: str
+    level: str  # beginner / intermediate / advanced
+    known: bool  # True=认识, False=不认识
+
+
+@router.post("/progress", response_model=APIResponse)
+async def record_vocab_progress(request: VocabProgressRequest, user_id: str = "default"):
+    """记录词汇学习进度（认识/不认识）"""
+    db = get_db_session()
+    try:
+        user = db.query(User).filter(User.user_id == user_id).first()
+        if not user:
+            return APIResponse(success=False, message="用户不存在")
+
+        # 检查是否已有记录
+        existing = db.query(VocabProgress).filter(
+            VocabProgress.user_id == user.id,
+            VocabProgress.word == request.word,
+        ).first()
+
+        if existing:
+            existing.known = request.known
+            existing.level = request.level
+        else:
+            record = VocabProgress(
+                user_id=user.id,
+                word=request.word,
+                level=request.level,
+                known=request.known,
+            )
+            db.add(record)
+
+        db.commit()
+        return APIResponse(success=True, message="已记录")
+    except Exception as e:
+        logger.error(f"保存词汇进度失败: {e}")
+        return APIResponse(success=False, message=str(e))
+    finally:
+        db.close()
+
+
+@router.get("/stats", response_model=APIResponse)
+async def get_vocab_stats(user_id: str = "default"):
+    """获取词汇学习统计"""
+    db = get_db_session()
+    try:
+        user = db.query(User).filter(User.user_id == user_id).first()
+        if not user:
+            return APIResponse(success=True, data={"total_learned": 0, "by_level": {}})
+
+        records = db.query(VocabProgress).filter(
+            VocabProgress.user_id == user.id
+        ).all()
+
+        known_count = sum(1 for r in records if r.known)
+        unknown_count = sum(1 for r in records if not r.known)
+
+        by_level = {}
+        for r in records:
+            if r.level not in by_level:
+                by_level[r.level] = {"known": 0, "unknown": 0}
+            if r.known:
+                by_level[r.level]["known"] += 1
+            else:
+                by_level[r.level]["unknown"] += 1
+
+        return APIResponse(
+            success=True,
+            data={
+                "total_learned": known_count,
+                "total_marked": len(records),
+                "known_count": known_count,
+                "unknown_count": unknown_count,
+                "by_level": by_level,
+            }
+        )
+    finally:
+        db.close()

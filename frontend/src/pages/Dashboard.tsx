@@ -153,6 +153,17 @@ export default function Dashboard({ onLogout, todayMinutes }: DashboardProps) {
               <div className="text-xs text-gray-500">了解水平</div>
             </div>
           </button>
+          <button onClick={() => navigate('/pronunciation')} className="card flex items-center gap-3 hover:bg-red-50 transition-colors">
+            <div className="w-10 h-10 rounded-xl bg-red-100 flex items-center justify-center">
+              <Mic size={20} className="text-red-600" />
+            </div>
+            <div className="text-left">
+              <div className="font-medium text-sm">发音练习</div>
+              <div className="text-xs text-gray-500">跟读评分</div>
+            </div>
+          </button>
+        </div>
+        <div className="grid grid-cols-2 gap-3">
           <button onClick={() => navigate('/scenario')} className="card flex items-center gap-3 hover:bg-purple-50 transition-colors">
             <div className="w-10 h-10 rounded-xl bg-purple-100 flex items-center justify-center">
               <MessageCircle size={20} className="text-purple-600" />
@@ -162,8 +173,6 @@ export default function Dashboard({ onLogout, todayMinutes }: DashboardProps) {
               <div className="text-xs text-gray-500">10+ 场景</div>
             </div>
           </button>
-        </div>
-        <div className="grid grid-cols-2 gap-3">
           <button onClick={() => navigate('/vocab')} className="card flex items-center gap-3 hover:bg-orange-50 transition-colors">
             <div className="w-10 h-10 rounded-xl bg-orange-100 flex items-center justify-center">
               <BookMarked size={20} className="text-orange-600" />
@@ -173,6 +182,8 @@ export default function Dashboard({ onLogout, todayMinutes }: DashboardProps) {
               <div className="text-xs text-gray-500">闪卡记忆</div>
             </div>
           </button>
+        </div>
+        <div className="grid grid-cols-2 gap-3">
           <button onClick={() => navigate('/reading')} className="card flex items-center gap-3 hover:bg-green-50 transition-colors">
             <div className="w-10 h-10 rounded-xl bg-green-100 flex items-center justify-center">
               <FileText size={20} className="text-green-600" />
