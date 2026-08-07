@@ -1,0 +1,87 @@
+[
+  {
+    "id": "b1",
+    "title": "My Daily Routine",
+    "content": "Hello! My name is Tom. I wake up at 7 o'clock every morning. First, I brush my teeth and wash my face. Then I have breakfast with my family. I usually eat bread and drink milk. At 8 o'clock, I go to school by bus. My school is not far from my home.\n\nI have four classes in the morning. My favorite subject is English. I like my English teacher because she is very kind. Lunch is at 12 o'clock. I eat in the school cafeteria with my friends.\n\nAfter school, I go home at 4 o'clock. I do my homework first. Then I play basketball with my friends in the park. In the evening, I have dinner with my family at 7 o'clock. I go to bed at 10 o'clock. I like my daily life very much!",
+    "questions": [
+      {
+        "question": "What time does Tom wake up?",
+        "options": ["6 o'clock", "7 o'clock", "8 o'clock", "9 o'clock"],
+        "answer": 1
+      },
+      {
+        "question": "What is Tom's favorite subject?",
+        "options": ["Math", "Science", "English", "History"],
+        "answer": 2
+      }
+    ]
+  },
+  {
+    "id": "b2",
+    "title": "A Trip to the Zoo",
+    "content": "Last Sunday, my family and I went to the zoo. The weather was sunny and warm. We arrived at the zoo at 9:30 in the morning. There were many people there.\n\nFirst, we saw the monkeys. They were very funny! They jumped from tree to tree and ate bananas. A little monkey came close to us and made faces. We all laughed.\n\nNext, we visited the elephants. They were huge! The baby elephant was drinking water from a big pool. The mother elephant was eating leaves from a tall tree.\n\nAfter that, we saw the lions. They were sleeping under a big rock. The zookeeper told us that lions sleep for about 20 hours every day. That's a lot of sleeping!\n\nAt noon, we had lunch at a small restaurant near the penguin area. I ate a hamburger and drank some orange juice. In the afternoon, we went to see the giraffes before going home. It was a wonderful day!",
+    "questions": [
+      {
+        "question": "What was the weather like on Sunday?",
+        "options": ["Rainy", "Snowy", "Sunny and warm", "Cloudy and cold"],
+        "answer": 2
+      },
+      {
+        "question": "What did the little monkey do?",
+        "options": ["Slept all day", "Made faces at them", "Ran away", "Ate a banana from their hand"],
+        "answer": 1
+      }
+    ]
+  },
+  {
+    "id": "b3",
+    "title": "My Best Friend",
+    "content": "I have a best friend. Her name is Lily. We are in the same class at school. Lily is 12 years old, the same age as me. She has long black hair and big brown eyes. She always wears a smile on her face.\n\nLily is very good at drawing. She can draw beautiful pictures of animals and nature. Last month, she won first prize in the school art competition. I was so proud of her!\n\nWe like to do many things together. After school, we often go to the library to read books. On weekends, we sometimes ride our bikes in the park. Lily's favorite food is pizza, and my favorite food is noodles. Sometimes we go to a restaurant and share both!\n\nLily is a very kind person. When I am sad, she makes me laugh. When I have problems with my homework, she helps me. I think everyone needs a friend like Lily. I hope we will be friends forever.",
+    "questions": [
+      {
+        "question": "What is Lily good at?",
+        "options": ["Singing", "Dancing", "Drawing", "Swimming"],
+        "answer": 2
+      },
+      {
+        "question": "Where do they often go after school?",
+        "options": ["The park", "The library", "The cinema", "The restaurant"],
+        "answer": 1
+      }
+    ]
+  },
+  {
+    "id": "b4",
+    "title": "The Four Seasons",
+    "content": "There are four seasons in a year: spring, summer, autumn, and winter. Each season has its own beauty.\n\nSpring comes after winter. The weather gets warmer, and flowers start to bloom. Trees grow new green leaves. Birds sing in the trees. Many people like spring because everything feels fresh and new.\n\nSummer is the hottest season. The sun shines brightly, and the days are long. Children love summer because they have summer vacation. They can go swimming, eat ice cream, and play outside until late.\n\nAutumn is a colorful season. The leaves on trees turn red, yellow, and orange. The weather becomes cool and comfortable. Farmers harvest their crops. Many people think autumn is the most beautiful season.\n\nWinter is the coldest season. In some places, it snows. Children make snowmen and have snowball fights. People wear warm clothes like coats, gloves, and scarves. They like to stay at home and drink hot chocolate.",
+    "questions": [
+      {
+        "question": "What happens to trees in spring?",
+        "options": ["They lose their leaves", "They grow new leaves", "They turn yellow", "They stop growing"],
+        "answer": 1
+      },
+      {
+        "question": "Why do children love summer?",
+        "options": ["Because it snows", "Because they have vacation", "Because leaves change color", "Because school starts"],
+        "answer": 1
+      }
+    ]
+  },
+  {
+    "id": "b5",
+    "title": "Healthy Eating",
+    "content": "Do you eat healthy food? Eating well is very important for your body and mind. Here are some tips for healthy eating.\n\nFirst, eat lots of fruits and vegetables. You should eat at least five servings of fruits and vegetables every day. Apples, bananas, carrots, and broccoli are all good choices. They have many vitamins that help your body grow strong.\n\nSecond, drink plenty of water. Your body needs water to work properly. Try to drink 6 to 8 glasses of water each day. Avoid sugary drinks like soda. They are not good for your teeth or your health.\n\nThird, don't skip breakfast. Breakfast is the most important meal of the day. It gives you energy for the morning. A good breakfast can be eggs, toast, milk, or cereal with fruit.\n\nFinally, try to eat less junk food. Chips, candy, and fast food taste good, but they are not healthy. You can eat them sometimes, but not every day. Remember: you are what you eat!",
+    "questions": [
+      {
+        "question": "How many servings of fruits and vegetables should you eat daily?",
+        "options": ["At least 2", "At least 3", "At least 5", "At least 8"],
+        "answer": 2
+      },
+      {
+        "question": "What does the text say about sugary drinks?",
+        "options": ["They are good for health", "They give you energy", "They are not good for your teeth", "You should drink them every day"],
+        "answer": 2
+      }
+    ]
+  }
+]

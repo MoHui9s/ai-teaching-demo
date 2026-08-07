@@ -62,6 +62,29 @@ export const tasks = {
       method: 'POST',
       body: JSON.stringify(data),
     }),
+  checkDictation: (userInput: string, referenceText: string) =>
+    request<{ success: boolean; data: any }>('/api/tasks/dictation/check', {
+      method: 'POST',
+      body: JSON.stringify({ user_input: userInput, reference_text: referenceText }),
+    }),
+  assessPronunciation: async (audioBlob: Blob, referenceText: string) => {
+    const formData = new FormData()
+    formData.append('audio', audioBlob, 'recording.webm')
+    formData.append('reference_text', referenceText)
+    const token = getToken()
+    const headers: Record<string, string> = {}
+    if (token) headers['Authorization'] = `Bearer ${token}`
+    const res = await fetch(`${API_BASE}/api/tasks/pronunciation/assess`, {
+      method: 'POST',
+      body: formData,
+      headers,
+    })
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ detail: '评估失败' }))
+      throw new Error(err.detail || `HTTP ${res.status}`)
+    }
+    return res.json()
+  },
 }
 
 // Chat (Agent)
@@ -129,6 +152,25 @@ export const asr = {
     }
     return res.json()
   },
+}
+
+// Reading
+export const reading = {
+  list: (level = 'beginner') =>
+    request<{ success: boolean; data: { articles: any[]; level: string } }>(`/api/reading/list?level=${level}`),
+  getArticle: (articleId: string, level = 'beginner') =>
+    request<{ success: boolean; data: any }>(`/api/reading/article/${articleId}?level=${level}`),
+  checkAnswers: (articleId: string, answers: number[], level = 'beginner') =>
+    request<{ success: boolean; data: { score: number; correct_count: number; total: number; results: any[] } }>(`/api/reading/check/${articleId}?level=${level}`, {
+      method: 'POST',
+      body: JSON.stringify({ answers }),
+    }),
+}
+
+// Vocab
+export const vocab = {
+  list: (level = 'beginner', count = 20) =>
+    request<{ success: boolean; data: { words: { word: string; chinese: string; example: string }[]; total_available: number; level: string } }>(`/api/vocab/list?level=${level}&count=${count}`),
 }
 
 // Achievements

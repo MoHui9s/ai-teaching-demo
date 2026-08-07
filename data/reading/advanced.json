@@ -1,0 +1,87 @@
+[
+  {
+    "id": "a1",
+    "title": "Artificial Intelligence and the Future of Work",
+    "content": "The rapid advancement of artificial intelligence has sparked intense debate about the future of employment. While some view AI as a threat that will eliminate millions of jobs, others argue it will create new opportunities and augment human capabilities rather than replace them entirely.\n\nHistorically, technological revolutions have always disrupted labor markets while simultaneously generating new forms of employment. The Industrial Revolution eliminated many manual jobs but created factory positions, engineering roles, and entirely new industries. Similarly, the rise of computers in the late 20th century made many clerical positions obsolete while giving birth to the IT sector, which now employs tens of millions worldwide.\n\nThe current wave of AI differs in one crucial respect: it targets cognitive tasks rather than physical ones. Large language models can draft legal documents, write computer code, and analyze complex datasets — tasks that were once the exclusive domain of highly educated professionals. This has led economists to predict that the impact will be felt most acutely in white-collar professions, a departure from previous technological disruptions that primarily affected blue-collar workers.\n\nHowever, the most likely scenario is not mass unemployment but a fundamental restructuring of work. Tasks will be unbundled from jobs, with AI handling routine cognitive work while humans focus on activities requiring emotional intelligence, creative problem-solving, and ethical judgment. The challenge for society will be ensuring that workers have access to the retraining and education needed to thrive in this new landscape.",
+    "questions": [
+      {
+        "question": "How does the current wave of AI differ from previous technological revolutions?",
+        "options": ["It affects physical labor", "It targets cognitive tasks", "It creates fewer jobs", "It only affects developing countries"],
+        "answer": 1
+      },
+      {
+        "question": "What is the most likely outcome predicted by the text?",
+        "options": ["Mass unemployment", "Complete replacement of humans", "Restructuring of work with humans and AI collaborating", "No significant change"],
+        "answer": 2
+      }
+    ]
+  },
+  {
+    "id": "a2",
+    "title": "The Psychology of Decision Making",
+    "content": "Every day, we make thousands of decisions, from trivial choices about what to wear to life-altering ones about careers and relationships. For centuries, economists assumed humans were rational actors who carefully weighed costs and benefits. However, research in behavioral psychology has revealed that our decision-making processes are far more complex — and flawed — than previously believed.\n\nDaniel Kahneman, who won the Nobel Prize for his work on decision making, proposed that the human mind operates through two distinct systems. System 1 is fast, intuitive, and emotional. It allows us to react quickly to threats and make snap judgments. System 2 is slower, more deliberate, and analytical. It handles complex calculations and requires conscious effort. While System 1 is remarkably efficient, it is also prone to systematic errors known as cognitive biases.\n\nOne of the most pervasive biases is loss aversion — the tendency to prefer avoiding losses over acquiring equivalent gains. Studies show that losing $100 feels approximately twice as painful as gaining $100 feels pleasurable. This explains why investors often hold onto losing stocks too long, hoping to avoid the psychological pain of realizing a loss. Another common bias is the confirmation bias, where we seek out information that supports our existing beliefs while ignoring contradictory evidence.\n\nUnderstanding these biases doesn't eliminate them, but it can help us make better decisions. Creating deliberate pauses between impulse and action gives System 2 time to engage. Seeking diverse perspectives can counteract confirmation bias. And reframing decisions to consider what we might lose by not taking action can help neutralize loss aversion.",
+    "questions": [
+      {
+        "question": "According to Kahneman, which system is fast and intuitive?",
+        "options": ["System 1", "System 2", "Both systems", "Neither system"],
+        "answer": 0
+      },
+      {
+        "question": "What does loss aversion refer to?",
+        "options": ["The desire to lose weight", "Preferring avoiding losses over equivalent gains", "The fear of making decisions", "The tendency to take excessive risks"],
+        "answer": 1
+      }
+    ]
+  },
+  {
+    "id": "a3",
+    "title": "The Paradox of Choice",
+    "content": "Conventional wisdom suggests that having more choices leads to greater freedom and satisfaction. Supermarkets offer dozens of breakfast cereals. Streaming services provide thousands of movies. Online dating apps present seemingly endless potential partners. Yet research by psychologist Barry Schwartz suggests that an abundance of choice often produces anxiety rather than liberation.\n\nSchwartz distinguishes between two types of decision makers: maximizers and satisficers. Maximizers aim to make the best possible choice, exhaustively researching every option before committing. Satisficers, on the other hand, seek a choice that meets their criteria and is \"good enough.\" Paradoxically, maximizers tend to be less happy with their decisions, even though they invest more effort. This is because the proliferation of options makes it impossible to be certain one has truly found the optimal choice, leading to persistent doubt and regret.\n\nThe mechanism behind this phenomenon is straightforward. Every choice involves opportunity cost — when we select one option, we forego all alternatives. The more alternatives there are, the greater the cumulative opportunity cost, and the more acutely we feel what we have given up. Furthermore, heightened expectations diminish satisfaction. When options were limited, a decent meal at a local restaurant felt satisfying. In a world of online reviews and curated food photography, even a good experience can feel disappointing compared to imagined perfection.\n\nSchwartz suggests that deliberately constraining our choices can increase happiness. By accepting \"good enough\" in many areas of life, we free cognitive resources for decisions that truly matter. The key is recognizing when the search for the best becomes counterproductive.",
+    "questions": [
+      {
+        "question": "What is the difference between maximizers and satisficers?",
+        "options": ["Maximizers are happier with decisions", "Maximizers seek the best option, satisficers accept good enough", "Satisficers research more", "There is no difference"],
+        "answer": 1
+      },
+      {
+        "question": "Why do more choices lead to less satisfaction?",
+        "options": ["People don't like freedom", "Greater opportunity cost and heightened expectations", "Choices are worse quality", "People prefer having no options"],
+        "answer": 1
+      }
+    ]
+  },
+  {
+    "id": "a4",
+    "title": "The Evolution of Language",
+    "content": "Language is perhaps the single most distinctive characteristic of the human species. While many animals communicate through signals, no other species possesses a system that can express abstract concepts, discuss hypothetical scenarios, and transmit accumulated knowledge across generations with the precision and flexibility of human language.\n\nThe origins of language remain one of science's great mysteries. Unlike bones and tools, words leave no fossils. The earliest written records date back only about 5,000 years, while spoken language is believed to have emerged between 50,000 and 150,000 years ago. Linguists have approached this puzzle through comparative analysis, studying the structural similarities among the world's approximately 7,000 languages to infer common ancestral features.\n\nNoam Chomsky revolutionized linguistics in the 1950s by proposing that all human languages share a \"universal grammar\" — an innate cognitive framework that predisposes children to acquire language. This theory helped explain the remarkable speed at which children master complex grammatical structures without explicit instruction. More recently, cognitive scientists have supplemented this view with evidence that language emerged through a combination of genetic mutations, increased brain size, and the social demands of living in larger groups.\n\nLanguages continue to evolve rapidly. The rise of the internet and social media has accelerated the creation of new words and grammatical patterns. Emojis and memes represent a novel form of visual communication that transcends traditional linguistic boundaries. Meanwhile, linguists estimate that one language dies approximately every two weeks, taking with it unique ways of understanding the world. The tension between globalization and linguistic diversity will define the future of human communication.",
+    "questions": [
+      {
+        "question": "When is spoken language believed to have emerged?",
+        "options": ["5,000 years ago", "10,000 years ago", "50,000 to 150,000 years ago", "500,000 years ago"],
+        "answer": 2
+      },
+      {
+        "question": "What did Noam Chomsky propose?",
+        "options": ["Languages are completely different", "Universal grammar exists", "Language is learned through imitation only", "Animals have language too"],
+        "answer": 1
+      }
+    ]
+  },
+  {
+    "id": "a5",
+    "title": "The Economics of Happiness",
+    "content": "For decades, economic policy in most nations has been guided by a single metric: Gross Domestic Product growth. The assumption was straightforward — a wealthier society is a happier society. However, a growing body of research in the field of happiness economics challenges this fundamental assumption.\n\nThe most striking finding is the Easterlin Paradox, named after economist Richard Easterlin. His research demonstrated that while within a given country, wealthier individuals tend to report higher life satisfaction than poorer ones, increases in national income over time do not necessarily lead to corresponding increases in average happiness. Once basic needs are met, additional wealth contributes diminishing returns to well-being. Countries like Japan have seen dramatic GDP growth since the 1950s with no measurable increase in reported happiness.\n\nWhat does contribute to happiness, then? Research consistently points to several factors: strong social relationships, meaningful work, good health, and a sense of autonomy. Denmark consistently ranks among the world's happiest countries despite high tax rates, which researchers attribute to strong social safety nets that reduce anxiety, a culture that values work-life balance, and high levels of social trust. Bhutan has famously prioritized Gross National Happiness over GDP, embedding well-being indicators into its national policy framework.\n\nThese insights have practical implications. Companies that invest in employee well-being see lower turnover and higher productivity. Urban planners who prioritize communal spaces and walkability create conditions for social connection. The emerging consensus suggests that economic policy should pursue growth as a means to well-being, not as an end in itself. The challenge lies in measuring what matters — and having the political will to act on those measurements.",
+    "questions": [
+      {
+        "question": "What is the Easterlin Paradox?",
+        "options": ["Rich people are always happier", "Higher national income doesn't necessarily increase average happiness", "Poor countries are happier", "Money has no effect on happiness"],
+        "answer": 1
+      },
+      {
+        "question": "Which country has prioritized Gross National Happiness over GDP?",
+        "options": ["Japan", "Denmark", "Bhutan", "United States"],
+        "answer": 2
+      }
+    ]
+  }
+]

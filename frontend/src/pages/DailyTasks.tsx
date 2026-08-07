@@ -12,6 +12,10 @@ export default function DailyTasks() {
   const [dictationInputs, setDictationInputs] = useState<Record<number, string>>({})
   // 口语任务：ASR 转写结果
   const [transcripts, setTranscripts] = useState<Record<number, string>>({})
+  // 口语任务：发音评估结果
+  const [assessResults, setAssessResults] = useState<Record<number, any>>({})
+  // 听力任务：听写检查结果
+  const [dictationResults, setDictationResults] = useState<Record<number, any>>({})
   // 展开的任务面板
   const [expandedTask, setExpandedTask] = useState<number | null>(null)
 
@@ -43,6 +47,39 @@ export default function DailyTasks() {
 
   const toggleExpand = (index: number) => {
     setExpandedTask(prev => prev === index ? null : index)
+  }
+
+  const handleAssess = async (index: number, referenceText: string) => {
+    // 需要重新录音来获取 Blob — 这里从 useVoiceRecorder 无法直接拿到 Blob
+    // 改为用 transcripts[index] 作为输入直接调文字比对
+    // 简化方案：将 transcript 作为 user_input 发给后端
+    try {
+      const res = await fetch(`${import.meta.env.VITE_API_BASE || ''}/api/tasks/pronunciation/assess-text`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('edulingua_token')}`,
+        },
+        body: JSON.stringify({ transcript: transcripts[index], reference_text: referenceText }),
+      })
+      if (res.ok) {
+        const data = await res.json()
+        setAssessResults(prev => ({ ...prev, [index]: data.data }))
+      }
+    } catch (e) {
+      console.error('评估失败', e)
+    }
+  }
+
+  const handleCheckDictation = async (index: number, referenceText: string) => {
+    const userInput = dictationInputs[index] || ''
+    if (!userInput.trim()) return
+    try {
+      const res = await tasks.checkDictation(userInput, referenceText)
+      if (res?.data) setDictationResults(prev => ({ ...prev, [index]: res.data }))
+    } catch (e) {
+      console.error('听写检查失败', e)
+    }
   }
 
   if (loading) {
@@ -173,9 +210,37 @@ export default function DailyTasks() {
                       />
                     </div>
                     {transcripts[i] && (
-                      <div className="bg-blue-50 rounded-xl p-3">
-                        <p className="text-xs text-blue-500 mb-1">识别结果:</p>
-                        <p className="text-sm text-blue-800 font-medium">{transcripts[i]}</p>
+                      <>
+                        <div className="bg-blue-50 rounded-xl p-3">
+                          <p className="text-xs text-blue-500 mb-1">识别结果:</p>
+                          <p className="text-sm text-blue-800 font-medium">{transcripts[i]}</p>
+                        </div>
+                        <button
+                          onClick={() => handleAssess(i, task.title)}
+                          className="text-xs text-primary-500 hover:text-primary-700 font-medium"
+                        >
+                          🔍 检查发音
+                        </button>
+                      </>
+                    )}
+                    {assessResults[i] && (
+                      <div className={`rounded-xl p-3 ${assessResults[i].score >= 80 ? 'bg-green-50' : assessResults[i].score >= 50 ? 'bg-yellow-50' : 'bg-red-50'}`}>
+                        <div className="flex items-center gap-2 mb-2">
+                          <span className="text-lg font-bold">{assessResults[i].score} 分</span>
+                          <span className="text-xs text-gray-500">
+                            ({assessResults[i].matched_words?.length || 0}/{assessResults[i].missing_words?.length || 0 + (assessResults[i].matched_words?.length || 0)} 词匹配)
+                          </span>
+                        </div>
+                        {assessResults[i].missing_words?.length > 0 && (
+                          <p className="text-xs text-red-600">
+                            遗漏词: <span className="font-medium">{assessResults[i].missing_words.join(', ')}</span>
+                          </p>
+                        )}
+                        {assessResults[i].extra_words?.length > 0 && (
+                          <p className="text-xs text-orange-600 mt-1">
+                            多余词: <span className="font-medium">{assessResults[i].extra_words.join(', ')}</span>
+                          </p>
+                        )}
                       </div>
                     )}
                   </div>
@@ -200,6 +265,40 @@ export default function DailyTasks() {
                         setDictationInputs(prev => ({ ...prev, [i]: e.target.value }))
                       }
                     />
+                    {dictationInputs[i]?.trim() && (
+                      <button
+                        onClick={() => handleCheckDictation(i, task.title)}
+                        className="text-xs text-primary-500 hover:text-primary-700 font-medium"
+                      >
+                        ✅ 检查听写
+                      </button>
+                    )}
+                    {dictationResults[i] && (
+                      <div className={`rounded-xl p-3 ${dictationResults[i].accuracy >= 80 ? 'bg-green-50' : dictationResults[i].accuracy >= 50 ? 'bg-yellow-50' : 'bg-red-50'}`}>
+                        <div className="flex items-center gap-2 mb-2">
+                          <span className="text-lg font-bold">{dictationResults[i].accuracy}%</span>
+                          <span className="text-xs text-gray-500">
+                            ({dictationResults[i].correct_words}/{dictationResults[i].total_words} 正确)
+                          </span>
+                        </div>
+                        {dictationResults[i].errors?.length > 0 && (
+                          <div className="space-y-1">
+                            {dictationResults[i].errors.map((err: any, ei: number) => (
+                              <p key={ei} className="text-xs text-red-600">
+                                第{err.position}词: 期望 <span className="font-medium">"{err.expected}"</span>
+                                {err.got !== '(缺失)' ? <> → 你写的是 <span className="font-medium">"{err.got}"</span></> : ' → 缺失'}
+                              </p>
+                            ))}
+                          </div>
+                        )}
+                        {dictationResults[i].missing_count > 0 && (
+                          <p className="text-xs text-orange-600 mt-1">漏词 {dictationResults[i].missing_count} 个</p>
+                        )}
+                        {dictationResults[i].extra_count > 0 && (
+                          <p className="text-xs text-orange-600 mt-1">多词 {dictationResults[i].extra_count} 个</p>
+                        )}
+                      </div>
+                    )}
                   </div>
                 )}
               </div>

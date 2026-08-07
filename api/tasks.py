@@ -3,9 +3,10 @@
 import os
 import json
 import logging
+import base64
 from datetime import date, datetime
 from typing import List, Optional
-from fastapi import APIRouter, HTTPException, Depends
+from fastapi import APIRouter, HTTPException, Depends, UploadFile, File, Form
 from sqlalchemy.orm import Session
 
 import sys
@@ -14,7 +15,9 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from database.database import get_db, get_db_session
-from database.models import DailyTask as DailyTaskModel, User
+from database.models import DailyTask as DailyTaskModel, User, PronunciationRecord
+from pydantic import BaseModel
+
 from api.schemas import (
     TaskItem,
     DailyTaskResponse,
@@ -370,3 +373,204 @@ async def get_task_history(user_id: str = "default", days: int = 7):
 
     finally:
         db.close()
+
+
+@router.post("/pronunciation/assess", response_model=APIResponse)
+async def assess_pronunciation(
+    audio: UploadFile = File(...),
+    reference_text: str = Form(...),
+    user_id: str = "default",
+):
+    """
+    发音评估
+
+    上传音频 + 参考文本 → ASR 转写 → 逐词比对 → 返回分数和差异词。
+    """
+    # 1. 读取音频并 Base64 编码
+    try:
+        audio_bytes = await audio.read()
+        if not audio_bytes:
+            return APIResponse(success=False, message="音频文件为空")
+        audio_b64 = base64.b64encode(audio_bytes).decode("utf-8")
+    except Exception as e:
+        return APIResponse(success=False, message=f"读取音频失败: {str(e)}")
+
+    # 2. 确定 MIME 类型
+    ct = audio.content_type or "audio/webm"
+    fmt_map = {"mp3": "mpeg", "mpeg": "mpeg", "ogg": "ogg", "flac": "flac",
+               "mp4": "mp4", "m4a": "mp4", "aac": "mp4", "webm": "webm"}
+    mime_type = next((v for k, v in fmt_map.items() if k in ct), "wav")
+
+    # 3. 调用 ASR 转写
+    try:
+        api_key = os.getenv("OPENAI_API_KEY", "")
+        base_url = os.getenv("OPENAI_BASE_URL", "https://dashscope.aliyuncs.com/compatible-mode/v1")
+        model = os.getenv("ASR_MODEL", "qwen3-asr-flash")
+        if not api_key:
+            return APIResponse(success=False, message="ASR 服务未配置")
+
+        from openai import OpenAI
+        client = OpenAI(api_key=api_key, base_url=base_url)
+        response = client.chat.completions.create(
+            model=model,
+            messages=[{"role": "user", "content": [
+                {"type": "input_audio", "input_audio": {"data": audio_b64, "format": mime_type}},
+                {"type": "text", "text": "请将这段音频转写为文字，只返回转写文本。"},
+            ]}],
+            max_tokens=512,
+        )
+        transcript = (response.choices[0].message.content or "").strip()
+    except Exception as e:
+        logger.error(f"ASR 调用失败: {e}")
+        return APIResponse(success=False, message=f"语音识别失败: {str(e)}")
+
+    if not transcript:
+        return APIResponse(success=False, message="未能识别到语音内容", data={"score": 0, "transcript": ""})
+
+    # 4. 逐词比对
+    import re
+    ref_words = [w.lower() for w in re.findall(r"[a-zA-Z']+", reference_text)]
+    user_words = [w.lower() for w in re.findall(r"[a-zA-Z']+", transcript)]
+    matched = [w for w in user_words if w in ref_words]
+    missing = [w for w in ref_words if w not in user_words]
+    extra = [w for w in user_words if w not in ref_words]
+    score = round(len(matched) / len(ref_words) * 100) if ref_words else 0
+
+    # 5. 写入发音记录
+    db = get_db_session()
+    try:
+        user = db.query(User).filter(User.user_id == user_id).first()
+        if user:
+            record = PronunciationRecord(
+                user_id=user.id, input_text=reference_text, user_audio_url="",
+                score=score,
+                word_scores={"matched": matched, "missing": missing, "extra": extra},
+                wrong_phonemes=missing, fluency_score=score, accuracy_score=score,
+            )
+            db.add(record)
+            db.commit()
+    except Exception as e:
+        logger.warning(f"保存发音记录失败: {e}")
+    finally:
+        db.close()
+
+    return APIResponse(
+        success=True,
+        message=f"发音得分: {score}/100",
+        data={
+            "score": score, "transcript": transcript, "reference_text": reference_text,
+            "matched_words": matched, "missing_words": missing, "extra_words": extra,
+        }
+    )
+
+
+class AssessTextRequest(BaseModel):
+    """纯文字发音评估请求（已有 ASR 转写文本时使用）"""
+    transcript: str
+    reference_text: str
+
+
+@router.post("/pronunciation/assess-text", response_model=APIResponse)
+async def assess_pronunciation_text(request: AssessTextRequest, user_id: str = "default"):
+    """
+    纯文字发音评估（不需要上传音频）
+
+    前端已完成 ASR 转写 → 直接比对转写文本与参考文本。
+    """
+    import re
+    transcript = request.transcript.strip()
+    reference_text = request.reference_text.strip()
+
+    if not transcript:
+        return APIResponse(success=False, message="转写文本为空", data={"score": 0})
+
+    ref_words = [w.lower() for w in re.findall(r"[a-zA-Z']+", reference_text)]
+    user_words = [w.lower() for w in re.findall(r"[a-zA-Z']+", transcript)]
+    matched = [w for w in user_words if w in ref_words]
+    missing = [w for w in ref_words if w not in user_words]
+    extra = [w for w in user_words if w not in ref_words]
+    score = round(len(matched) / len(ref_words) * 100) if ref_words else 0
+
+    # 写入发音记录
+    db = get_db_session()
+    try:
+        user = db.query(User).filter(User.user_id == user_id).first()
+        if user:
+            record = PronunciationRecord(
+                user_id=user.id, input_text=reference_text, user_audio_url="",
+                score=score,
+                word_scores={"matched": matched, "missing": missing, "extra": extra},
+                wrong_phonemes=missing, fluency_score=score, accuracy_score=score,
+            )
+            db.add(record)
+            db.commit()
+    except Exception as e:
+        logger.warning(f"保存发音记录失败: {e}")
+    finally:
+        db.close()
+
+    return APIResponse(
+        success=True,
+        message=f"发音得分: {score}/100",
+        data={
+            "score": score, "transcript": transcript, "reference_text": reference_text,
+            "matched_words": matched, "missing_words": missing, "extra_words": extra,
+        }
+    )
+
+
+class DictationCheckRequest(BaseModel):
+    """听写检查请求"""
+    user_input: str
+    reference_text: str
+
+
+@router.post("/dictation/check", response_model=APIResponse)
+async def check_dictation(request: DictationCheckRequest, user_id: str = "default"):
+    """
+    听写检查
+
+    比对用户输入与参考答案，返回准确率和差异。
+    """
+    import re
+    user_input = request.user_input.strip()
+    reference_text = request.reference_text.strip()
+
+    if not user_input:
+        return APIResponse(success=False, message="听写内容为空", data={"accuracy": 0})
+
+    # 逐词比对（大小写/标点容错）
+    ref_words = [w.lower() for w in re.findall(r"[a-zA-Z']+", reference_text)]
+    user_words = [w.lower() for w in re.findall(r"[a-zA-Z']+", user_input)]
+
+    # 逐位置比对
+    correct = 0
+    errors = []
+    for i, ref_word in enumerate(ref_words):
+        if i < len(user_words) and user_words[i] == ref_word:
+            correct += 1
+        else:
+            errors.append({
+                "position": i + 1,
+                "expected": ref_word,
+                "got": user_words[i] if i < len(user_words) else "(缺失)",
+            })
+
+    accuracy = round(correct / len(ref_words) * 100) if ref_words else 0
+    missing_count = max(0, len(ref_words) - len(user_words))
+    extra_count = max(0, len(user_words) - len(ref_words))
+
+    return APIResponse(
+        success=True,
+        message=f"听写正确率: {accuracy}%",
+        data={
+            "accuracy": accuracy,
+            "correct_words": correct,
+            "total_words": len(ref_words),
+            "errors": errors,
+            "missing_count": missing_count,
+            "extra_count": extra_count,
+            "user_input": user_input,
+            "reference_text": reference_text,
+        }
+    )

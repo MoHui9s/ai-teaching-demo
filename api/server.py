@@ -29,6 +29,8 @@ from api.progress import router as progress_router
 from api.achievements import router as achievements_router
 from api.scenarios import router as scenarios_router
 from api.asr import router as asr_router
+from api.vocab import router as vocab_router
+from api.reading import router as reading_router
 
 # 数据库
 from database.database import init_db
@@ -101,6 +103,8 @@ app.include_router(progress_router)           # /api/progress/*
 app.include_router(achievements_router)       # /api/achievements/*
 app.include_router(scenarios_router)          # /api/scenarios/*
 app.include_router(asr_router)                # /api/asr/*
+app.include_router(vocab_router)             # /api/vocab/*
+app.include_router(reading_router)           # /api/reading/*
 
 # Agent 缓存
 _agents: Dict[str, HermesAgent] = {}

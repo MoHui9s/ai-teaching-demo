@@ -1,0 +1,87 @@
+[
+  {
+    "id": "i1",
+    "title": "The Benefits of Learning a Second Language",
+    "content": "Learning a second language is one of the most valuable skills you can develop. Research shows that bilingual people have better problem-solving abilities and are more creative in their thinking.\n\nWhen you learn a new language, your brain creates new connections between neurons. This process, called neuroplasticity, helps keep your brain healthy and may even delay the onset of diseases like Alzheimer's. Studies suggest that bilingual individuals develop dementia about 4 to 5 years later than those who speak only one language.\n\nBeyond brain health, speaking a second language opens doors to new opportunities. In today's globalized world, companies increasingly value employees who can communicate with international clients. Many employers offer higher salaries to bilingual workers. Additionally, knowing another language makes travel much more enjoyable. You can connect with local people, understand their culture, and navigate unfamiliar places with confidence.\n\nPerhaps the most rewarding benefit is personal growth. Learning a language teaches you patience and perseverance. You learn to embrace mistakes as part of the journey. As Nelson Mandela once said, \"If you talk to a man in a language he understands, that goes to his head. If you talk to him in his language, that goes to his heart.\"",
+    "questions": [
+      {
+        "question": "According to the text, what can learning a second language delay?",
+        "options": ["The need for exercise", "The onset of Alzheimer's", "The aging process", "The need for sleep"],
+        "answer": 1
+      },
+      {
+        "question": "What is the main idea of the third paragraph?",
+        "options": ["Language learning is difficult", "Brain health benefits of language learning", "Career and travel opportunities from bilingualism", "The history of language learning"],
+        "answer": 2
+      }
+    ]
+  },
+  {
+    "id": "i2",
+    "title": "The Rise of Remote Work",
+    "content": "The way we work has changed dramatically in recent years. Remote work, once considered a rare perk, has become a mainstream practice for millions of people around the world.\n\nThe COVID-19 pandemic accelerated this shift significantly. When offices closed in early 2020, companies had no choice but to allow employees to work from home. What started as a temporary measure soon revealed unexpected advantages. Many businesses discovered that productivity actually increased when employees worked remotely. Without long commutes and office distractions, workers could focus better on their tasks.\n\nHowever, remote work is not without challenges. Some people struggle with feelings of isolation and loneliness. The boundary between work and personal life can become blurry when your home is also your office. Video meetings, while useful, can lead to what experts call \"Zoom fatigue.\"\n\nLooking ahead, most experts predict a hybrid model will become the norm. Employees will spend part of their week in the office for collaboration and team building, and the rest working from home for focused individual work. The key is finding the right balance that works for both companies and their employees.",
+    "questions": [
+      {
+        "question": "What was the effect of remote work on productivity, according to the text?",
+        "options": ["It decreased significantly", "It stayed the same", "It actually increased", "It was not mentioned"],
+        "answer": 2
+      },
+      {
+        "question": "What future work model do most experts predict?",
+        "options": ["Full-time office work", "Full-time remote work", "A hybrid model", "No clear prediction"],
+        "answer": 2
+      }
+    ]
+  },
+  {
+    "id": "i3",
+    "title": "The Story of the Silk Road",
+    "content": "The Silk Road was not actually a single road, but a network of trade routes that connected East Asia with Europe for more than 1,500 years. It stretched over 6,400 kilometers across mountains, deserts, and grasslands.\n\nThe name \"Silk Road\" comes from the valuable Chinese silk that traders carried westward. However, many other goods traveled along these routes. From China came tea, paper, and porcelain. From India came spices, cotton, and precious stones. The Middle East exported glass, carpets, and dates. Europe sent gold, silver, and wool.\n\nBut the Silk Road traded more than just goods. It was also a highway of ideas. Buddhism spread from India to China along these routes. Islamic scholars brought advanced mathematics and astronomy to Europe. Chinese inventions like paper-making and gunpowder transformed Western societies. The exchange of ideas, technologies, and cultures may have been even more important than the trade in goods.\n\nThe Silk Road declined in the 15th century. The rise of sea routes made transport faster and cheaper. Political instability in Central Asia also made overland travel dangerous. However, its legacy continues today. Modern China's \"Belt and Road Initiative\" draws inspiration from the ancient Silk Road, aiming to rebuild trade connections across Asia, Europe, and Africa.",
+    "questions": [
+      {
+        "question": "What was the main Chinese export that gave the Silk Road its name?",
+        "options": ["Tea", "Paper", "Silk", "Porcelain"],
+        "answer": 2
+      },
+      {
+        "question": "Besides goods, what else traveled along the Silk Road?",
+        "options": ["Diseases only", "Ideas and cultures", "Military weapons only", "Nothing else"],
+        "answer": 1
+      }
+    ]
+  },
+  {
+    "id": "i4",
+    "title": "Understanding Climate Change",
+    "content": "Climate change is one of the most pressing challenges facing humanity today. Scientists agree that the Earth's average temperature is rising at an unprecedented rate, primarily due to human activities.\n\nThe main cause is the greenhouse effect. When we burn fossil fuels like coal, oil, and gas, we release carbon dioxide into the atmosphere. This gas traps heat from the sun, causing the planet to warm up — similar to how a greenhouse works. Since the Industrial Revolution, carbon dioxide levels have increased by more than 40%.\n\nThe effects are already visible around the world. Polar ice caps are melting, causing sea levels to rise. Extreme weather events — such as hurricanes, floods, and droughts — are becoming more frequent and intense. Many animal species are losing their habitats. Coral reefs, which support about 25% of all marine life, are dying at alarming rates.\n\nHowever, there is still hope. Countries are working together to reduce emissions through agreements like the Paris Climate Accord. Renewable energy sources such as solar and wind power are becoming cheaper and more widespread. Individuals can also make a difference by reducing waste, using public transport, and supporting environmentally responsible companies. Every small action counts in the fight against climate change.",
+    "questions": [
+      {
+        "question": "What is the primary cause of climate change according to the text?",
+        "options": ["Natural cycles", "Human activities", "Solar radiation", "Volcanic eruptions"],
+        "answer": 1
+      },
+      {
+        "question": "How much have carbon dioxide levels increased since the Industrial Revolution?",
+        "options": ["About 10%", "About 25%", "More than 40%", "More than 60%"],
+        "answer": 2
+      }
+    ]
+  },
+  {
+    "id": "i5",
+    "title": "The Power of Habits",
+    "content": "Habits shape our lives more than we realize. According to researchers, about 40% of our daily actions are not conscious decisions but automatic habits. Understanding how habits work can help us build good ones and break bad ones.\n\nEvery habit follows a three-step loop: cue, routine, and reward. The cue is a trigger that tells your brain to start the behavior. For example, feeling stressed (cue) might trigger the urge to eat a snack (routine), which makes you feel better temporarily (reward). Over time, this loop becomes automatic.\n\nTo build a new habit, experts recommend starting small. Instead of planning to exercise for an hour every day, start with just five minutes. The key is consistency, not intensity. Another effective strategy is \"habit stacking\" — attaching a new habit to an existing one. For instance, after you brush your teeth (existing habit), you could do ten push-ups (new habit).\n\nBreaking bad habits requires a different approach. The first step is awareness — identifying the cues that trigger the behavior. Then you can change your response to that cue. If you habitually check social media when you're bored (cue), try replacing that routine with reading a book or taking a short walk. It takes time and patience, but habits can always be changed with the right strategy.",
+    "questions": [
+      {
+        "question": "What percentage of daily actions are automatic habits?",
+        "options": ["About 20%", "About 40%", "About 60%", "About 80%"],
+        "answer": 1
+      },
+      {
+        "question": "What is 'habit stacking' according to the text?",
+        "options": ["Doing many habits at once", "Attaching a new habit to an existing one", "Taking a break from habits", "Writing down your habits"],
+        "answer": 1
+      }
+    ]
+  }
+]

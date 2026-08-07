@@ -6,6 +6,9 @@ import ScenarioChat from './pages/ScenarioChat'
 import Progress from './pages/Progress'
 import Achievements from './pages/Achievements'
 import Diagnosis from './pages/Diagnosis'
+import History from './pages/History'
+import Vocab from './pages/Vocab'
+import Reading from './pages/Reading'
 import Login from './pages/Login'
 import BottomNav from './components/BottomNav'
 import { useStudyTimer } from './hooks/useStudyTimer'
@@ -55,6 +58,9 @@ function App() {
         <Route path="/progress" element={<Progress />} />
         <Route path="/achievements" element={<Achievements />} />
         <Route path="/diagnosis" element={<Diagnosis />} />
+        <Route path="/history" element={<History />} />
+        <Route path="/vocab" element={<Vocab />} />
+        <Route path="/reading" element={<Reading />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
       <BottomNav />

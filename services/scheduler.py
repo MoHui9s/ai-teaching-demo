@@ -48,8 +48,8 @@ def start_scheduler():
                         {
                             "total_minutes": dp.total_minutes,
                             "tasks_completed": dp.tasks_completed,
-                            "dialogs_count": dp.scenarios_practiced,
-                            "new_words": dp.new_words_learned,
+                            "dialogs_count": dp.dialogs_count,
+                            "new_words": dp.new_words,
                         }
                         for dp in daily_progress
                     ]
