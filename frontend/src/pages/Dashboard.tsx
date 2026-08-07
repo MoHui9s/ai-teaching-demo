@@ -1,9 +1,14 @@
 import { useEffect, useState } from 'react'
 import { tasks } from '../api/client'
 import { useNavigate } from 'react-router-dom'
-import { Flame, Clock, Target, BookOpen, ChevronRight, Sparkles } from 'lucide-react'
+import { Flame, Clock, Target, BookOpen, ChevronRight, Sparkles, Mic, MessageCircle, LogOut } from 'lucide-react'
+import OnboardingGuide from '../components/OnboardingGuide'
 
-export default function Dashboard() {
+interface DashboardProps {
+  onLogout: () => void
+}
+
+export default function Dashboard({ onLogout }: DashboardProps) {
   const [dailyTasks, setDailyTasks] = useState<any>(null)
   const [progress, setProgress] = useState<any>(null)
   const [loading, setLoading] = useState(true)
@@ -34,6 +39,8 @@ export default function Dashboard() {
   const todayMinutes = dailyTasks?.time_spent || 0
   const taskContent = dailyTasks?.task_content || []
   const completed = taskContent.filter((t: any) => t.status === 'done').length
+  const isNewUser = dailyTasks?.onboarding === true
+  const hasNoProgress = !progress || (progress.streak_days === 0 && !progress.week_total_minutes)
 
   return (
     <div className="p-5 space-y-5">
@@ -43,11 +50,25 @@ export default function Dashboard() {
           <h1 className="page-title">你好，Tan同学 👋</h1>
           <p className="page-subtitle">今天也要加油学英语哦！</p>
         </div>
-        <div className="flex items-center gap-1 bg-orange-50 text-orange-600 px-3 py-1.5 rounded-full">
-          <Flame size={18} />
-          <span className="font-bold text-sm">{streak} 天</span>
+        <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1 bg-orange-50 text-orange-600 px-3 py-1.5 rounded-full">
+            <Flame size={18} />
+            <span className="font-bold text-sm">{streak} 天</span>
+          </div>
+          <button
+            onClick={onLogout}
+            className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+            title="退出登录"
+          >
+            <LogOut size={18} />
+          </button>
         </div>
       </div>
+
+      {/* 新用户引导 */}
+      {(isNewUser || hasNoProgress) && (
+        <OnboardingGuide onStartDiagnosis={() => navigate('/diagnosis')} />
+      )}
 
       {/* 今日统计卡片 */}
       <div className="grid grid-cols-3 gap-3">
@@ -102,13 +123,13 @@ export default function Dashboard() {
 
       {/* 快捷入口 */}
       <div className="grid grid-cols-2 gap-3">
-        <button onClick={() => navigate('/pronunciation')} className="card flex items-center gap-3 hover:bg-blue-50 transition-colors">
+        <button onClick={() => navigate('/diagnosis')} className="card flex items-center gap-3 hover:bg-blue-50 transition-colors">
           <div className="w-10 h-10 rounded-xl bg-blue-100 flex items-center justify-center">
-            <Mic size={20} className="text-blue-600" />
+            <Target size={20} className="text-blue-600" />
           </div>
           <div className="text-left">
-            <div className="font-medium text-sm">发音练习</div>
-            <div className="text-xs text-gray-500">跟读模式</div>
+            <div className="font-medium text-sm">能力诊断</div>
+            <div className="text-xs text-gray-500">了解水平</div>
           </div>
         </button>
         <button onClick={() => navigate('/scenario')} className="card flex items-center gap-3 hover:bg-purple-50 transition-colors">

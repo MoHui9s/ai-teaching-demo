@@ -23,6 +23,7 @@ from api.schemas import (
     DiagnosisResponse,
     APIResponse,
 )
+from api._user_sync import ensure_orm_user
 
 logger = logging.getLogger("edulingua-tasks")
 
@@ -146,11 +147,36 @@ async def get_daily_tasks(user_id: str = "default"):
 
         # 未生成任务：LLM 动态生成，失败则 fallback 模板
         user = db.query(User).filter(User.user_id == user_id).first()
+        if not user:
+            # 用户不存在于 ORM，尝试从 auth 库修复（DEV_MODE）或返回错误
+            import os
+            dev_mode = os.getenv("DEV_MODE", "false").lower() in ("1", "true", "yes")
+            if dev_mode:
+                from database.user_db_sqlite import get_user_db
+                auth_db = get_user_db()
+                auth_user = auth_db.get_user_by_id(user_id)
+                if auth_user:
+                    user = ensure_orm_user(
+                        user_id, auth_user["email"],
+                        auth_user.get("password_hash", "")
+                    )
+            if not user:
+                return APIResponse(
+                    success=False,
+                    message="用户不存在，请先注册",
+                    data=None
+                )
+
         level = user.level if user else "beginner"
         tasks = _generate_tasks_with_llm(level, user_id) or DEFAULT_TASKS.get(level, DEFAULT_TASKS["beginner"])
+        # 检测是否为新用户（无历史任务）
+        task_history_count = db.query(DailyTaskModel).filter(
+            DailyTaskModel.user_id == user.id
+        ).count()
+        is_new_user = task_history_count == 0
 
         new_task = DailyTaskModel(
-            user_id=user.id if user else 1,
+            user_id=user.id,
             date=today,
             task_content=tasks,
             status="pending",
@@ -168,6 +194,8 @@ async def get_daily_tasks(user_id: str = "default"):
                 "task_content": new_task.task_content,
                 "status": new_task.status,
                 "time_spent": new_task.time_spent,
+                "onboarding": is_new_user,
+                "suggested_action": "diagnosis" if is_new_user else None,
             }
         )
 
@@ -270,6 +298,19 @@ async def diagnose_ability(request: DiagnosisRequest, user_id: str = "default"):
     db = get_db_session()
     try:
         user = db.query(User).filter(User.user_id == user_id).first()
+        if not user:
+            # 用户不存在，尝试自动创建（DEV_MODE）
+            import os
+            dev_mode = os.getenv("DEV_MODE", "false").lower() in ("1", "true", "yes")
+            if dev_mode:
+                from database.user_db_sqlite import get_user_db
+                auth_db = get_user_db()
+                auth_user = auth_db.get_user_by_id(user_id)
+                if auth_user:
+                    user = ensure_orm_user(
+                        user_id, auth_user["email"],
+                        auth_user.get("password_hash", "")
+                    )
         if user:
             user.level = level
             user.vocab_size = vocab_estimate

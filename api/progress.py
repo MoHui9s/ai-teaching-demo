@@ -18,6 +18,7 @@ from database.models import (
     DailyProgress, WeeklyReport,
 )
 from api.schemas import ProgressOverview, WeeklyReportResponse, APIResponse
+from api._user_sync import ensure_orm_user
 
 logger = logging.getLogger("edulingua-progress")
 
@@ -145,7 +146,11 @@ async def get_weekly_report(
     try:
         user = db.query(User).filter(User.user_id == user_id).first()
         if not user:
-            return APIResponse(success=False, message="用户不存在")
+            return APIResponse(
+                success=True,
+                message="请先完成能力诊断，解锁周报功能",
+                data=None
+            )
 
         # 获取本周进度
         progress_records = db.query(DailyProgress).filter(

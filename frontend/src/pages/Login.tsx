@@ -2,24 +2,31 @@ import { useState } from 'react'
 import { auth } from '../api/client'
 
 interface LoginProps {
-  onLogin: (token: string) => void
+  onLogin: (token: string, userId: string) => void
 }
 
 export default function Login({ onLogin }: LoginProps) {
+  const [isRegister, setIsRegister] = useState(false)
+  const [name, setName] = useState('')
   const [email, setEmail] = useState('user@example.com')
   const [password, setPassword] = useState('password123')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
 
-  const handleLogin = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError('')
     setLoading(true)
     try {
-      const res = await auth.login(email, password)
-      onLogin(res.access_token)
+      if (isRegister) {
+        const res = await auth.register(email, password, name)
+        onLogin(res.access_token, res.user_id)
+      } else {
+        const res = await auth.login(email, password)
+        onLogin(res.access_token, res.user_id)
+      }
     } catch (err: any) {
-      setError(err.message || '登录失败')
+      setError(err.message || (isRegister ? '注册失败' : '登录失败'))
     } finally {
       setLoading(false)
     }
@@ -34,11 +41,47 @@ export default function Login({ onLogin }: LoginProps) {
           <p className="text-white/70 text-sm">AI驱动的全栈英语学习系统</p>
         </div>
 
-        <form onSubmit={handleLogin} className="card space-y-4">
-          <h2 className="text-lg font-semibold text-center">登录</h2>
+        <form onSubmit={handleSubmit} className="card space-y-4">
+          {/* 登录/注册切换 */}
+          <div className="flex bg-gray-100 rounded-xl p-1">
+            <button
+              type="button"
+              className={`flex-1 py-2 rounded-lg text-sm font-medium transition-colors ${
+                !isRegister ? 'bg-white shadow text-primary-600' : 'text-gray-500'
+              }`}
+              onClick={() => { setIsRegister(false); setError('') }}
+            >
+              登录
+            </button>
+            <button
+              type="button"
+              className={`flex-1 py-2 rounded-lg text-sm font-medium transition-colors ${
+                isRegister ? 'bg-white shadow text-primary-600' : 'text-gray-500'
+              }`}
+              onClick={() => { setIsRegister(true); setError('') }}
+            >
+              注册
+            </button>
+          </div>
+
           {error && (
             <div className="bg-red-50 text-red-600 text-sm rounded-xl px-4 py-3">{error}</div>
           )}
+
+          {/* 注册时显示姓名 */}
+          {isRegister && (
+            <div>
+              <label className="text-sm text-gray-600 mb-1 block">姓名</label>
+              <input
+                type="text"
+                className="input-field"
+                value={name}
+                onChange={e => setName(e.target.value)}
+                placeholder="你的名字"
+              />
+            </div>
+          )}
+
           <div>
             <label className="text-sm text-gray-600 mb-1 block">邮箱</label>
             <input
@@ -57,15 +100,15 @@ export default function Login({ onLogin }: LoginProps) {
               className="input-field"
               value={password}
               onChange={e => setPassword(e.target.value)}
-              placeholder="password123"
+              placeholder={isRegister ? '至少6位密码' : 'password123'}
               required
             />
           </div>
           <button type="submit" disabled={loading} className="btn-primary w-full">
-            {loading ? '登录中...' : '开始学习'}
+            {loading ? (isRegister ? '注册中...' : '登录中...') : (isRegister ? '创建账号' : '开始学习')}
           </button>
           <p className="text-xs text-gray-400 text-center">
-            开发模式：使用默认账号即可登录
+            {isRegister ? '已有账号？上方切换到登录' : '开发模式：使用默认账号即可登录'}
           </p>
         </form>
       </div>

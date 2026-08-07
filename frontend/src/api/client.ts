@@ -6,6 +6,10 @@ function getToken(): string | null {
   return localStorage.getItem('edulingua_token')
 }
 
+function getUserId(): string {
+  return localStorage.getItem('edulingua_user_id') || 'default'
+}
+
 async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   const token = getToken()
   const headers: Record<string, string> = {
@@ -31,21 +35,26 @@ export const auth = {
       method: 'POST',
       body: JSON.stringify({ email, password }),
     }),
+  register: (email: string, password: string, name: string) =>
+    request<{ access_token: string; user_id: string; email: string; name: string }>('/api/auth/register', {
+      method: 'POST',
+      body: JSON.stringify({ email, password, name }),
+    }),
 }
 
 // Tasks
 export const tasks = {
-  getDaily: (userId = 'default') =>
-    request<{ success: boolean; data: any }>(`/api/tasks/daily?user_id=${userId}`),
-  complete: (taskIndex: number, timeSpentMin: number, userId = 'default') =>
-    request<{ success: boolean; data: any }>(`/api/tasks/daily/complete?user_id=${userId}`, {
+  getDaily: (userId?: string) =>
+    request<{ success: boolean; data: any }>(`/api/tasks/daily?user_id=${userId || getUserId()}`),
+  complete: (taskIndex: number, timeSpentMin: number, userId?: string) =>
+    request<{ success: boolean; data: any }>(`/api/tasks/daily/complete?user_id=${userId || getUserId()}`, {
       method: 'POST',
       body: JSON.stringify({ task_index: taskIndex, time_spent_min: timeSpentMin }),
     }),
-  getHistory: (days = 7, userId = 'default') =>
-    request<{ success: boolean; data: any }>(`/api/tasks/history?user_id=${userId}&days=${days}`),
-  diagnose: (data: { vocab_answers: string[]; pronunciation_text: string; listening_answers: string[] }, userId = 'default') =>
-    request<{ level: string; vocab_estimate: number; message: string }>(`/api/tasks/diagnosis?user_id=${userId}`, {
+  getHistory: (days = 7, userId?: string) =>
+    request<{ success: boolean; data: any }>(`/api/tasks/history?user_id=${userId || getUserId()}&days=${days}`),
+  diagnose: (data: { vocab_answers: string[]; pronunciation_text: string; listening_answers: string[] }, userId?: string) =>
+    request<{ level: string; vocab_estimate: number; message: string }>(`/api/tasks/diagnosis?user_id=${userId || getUserId()}`, {
       method: 'POST',
       body: JSON.stringify(data),
     }),
@@ -53,10 +62,10 @@ export const tasks = {
 
 // Chat (Agent)
 export const chat = {
-  send: (messages: { role: string; content: string }[], userId = 'default') =>
+  send: (messages: { role: string; content: string }[]) =>
     request<{ choices: { message: { content: string } }[] }>('/v1/chat/completions', {
       method: 'POST',
-      body: JSON.stringify({ messages, user_id: userId, model: 'tan-english-tutor' }),
+      body: JSON.stringify({ messages, model: 'tan-english-tutor' }),
     }),
 }
 
@@ -84,23 +93,23 @@ export const scenarios = {
 
 // Progress
 export const progress = {
-  overview: (userId = 'default') =>
-    request<{ success: boolean; data: any }>(`/api/progress/overview?user_id=${userId}`),
-  weeklyReport: (weekStart?: string, userId = 'default') => {
-    const params = new URLSearchParams({ user_id: userId })
+  overview: (userId?: string) =>
+    request<{ success: boolean; data: any }>(`/api/progress/overview?user_id=${userId || getUserId()}`),
+  weeklyReport: (weekStart?: string, userId?: string) => {
+    const params = new URLSearchParams({ user_id: userId || getUserId() })
     if (weekStart) params.set('week_start', weekStart)
     return request<{ success: boolean; data: any }>(`/api/progress/weekly-report?${params}`)
   },
-  allReports: (userId = 'default') =>
-    request<{ success: boolean; data: any }>(`/api/progress/reports?user_id=${userId}`),
+  allReports: (userId?: string) =>
+    request<{ success: boolean; data: any }>(`/api/progress/reports?user_id=${userId || getUserId()}`),
 }
 
 // Achievements
 export const achievements = {
-  list: (userId = 'default') =>
-    request<{ success: boolean; data: { achievements: any[]; total_unlocked: number; total_count: number } }>(`/api/achievements/list?user_id=${userId}`),
-  check: (userId = 'default') =>
-    request<{ success: boolean; data: { new_unlocks: any[] } }>(`/api/achievements/check?user_id=${userId}`, {
+  list: (userId?: string) =>
+    request<{ success: boolean; data: { achievements: any[]; total_unlocked: number; total_count: number } }>(`/api/achievements/list?user_id=${userId || getUserId()}`),
+  check: (userId?: string) =>
+    request<{ success: boolean; data: { new_unlocks: any[] } }>(`/api/achievements/check?user_id=${userId || getUserId()}`, {
       method: 'POST',
     }),
 }

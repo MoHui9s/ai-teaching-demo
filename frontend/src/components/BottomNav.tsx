@@ -1,11 +1,12 @@
 import { NavLink, useLocation } from 'react-router-dom'
-import { Home, CheckSquare, MessageCircle, BarChart3 } from 'lucide-react'
+import { Home, CheckSquare, MessageCircle, BarChart3, Trophy } from 'lucide-react'
 
 const navItems = [
   { to: '/', icon: Home, label: '看板' },
   { to: '/tasks', icon: CheckSquare, label: '任务' },
   { to: '/scenario', icon: MessageCircle, label: '对话' },
   { to: '/progress', icon: BarChart3, label: '进度' },
+  { to: '/achievements', icon: Trophy, label: '成就' },
 ]
 
 export default function BottomNav() {

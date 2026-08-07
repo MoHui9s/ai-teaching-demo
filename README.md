@@ -26,13 +26,15 @@
 ```
 ┌─────────────────────────────────────────────────────┐
 │            前端 (React + TS + Tailwind)                │
-│  Dashboard │ Tasks │ Scenarios │ Progress │ Achievements │
+│  Dashboard │ Tasks │ Scenario │ Progress              │
+│  Achievements │ Diagnosis │ Login/Register            │
 └─────────────────────┬───────────────────────────────┘
-                      │ HTTP/REST
+                      │ HTTP/REST (JWT Auth)
 ┌─────────────────────▼───────────────────────────────┐
 │                  后端 (FastAPI)                        │
-│  /api/tts  /api/asr  /api/tasks  /api/progress       │
-│  /api/scenarios  /api/achievements                    │
+│  /api/auth  /api/tasks  /api/progress                 │
+│  /api/scenarios  /api/achievements  /api/tts  /api/asr│
+│  /v1/chat/completions                                 │
 └──────────────────┬──────────────────────────────────┘
                    │
     ┌──────────────┼──────────────┐
@@ -107,10 +109,21 @@ npm run dev
 
 访问 http://localhost:5173
 
-### 5. Docker 部署（推荐）
+### 5. 停止服务
 
 ```bash
-docker-compose -f deploy/docker-compose.yml up -d
+# 停止后端 (占用 8000 端口)
+taskkill /F /IM "uvicorn.exe"
+
+# 停止前端 (占用 5173 端口)
+taskkill /F /IM "node.exe"
+```
+
+或者按端口精确终止：
+
+```bash
+# Windows — 一键停全部
+netstat -ano | grep -E "8000|5173" | awk '{print $5}' | xargs -I{} taskkill /F /PID {}
 ```
 
 ## 📡 API 端点
@@ -118,6 +131,8 @@ docker-compose -f deploy/docker-compose.yml up -d
 | 端点 | 说明 |
 |------|------|
 | `POST /v1/chat/completions` | Agent 对话（4 工具，qwen-plus）|
+| `POST /api/auth/login` | 用户登录（JWT） |
+| `POST /api/auth/register` | 用户注册（注册即登录） |
 | `GET /api/tasks/daily` | 获取/生成每日任务（LLM 动态生成）|
 | `POST /api/tasks/daily/complete` | 完成子任务 |
 | `POST /api/tasks/diagnosis` | 初始能力诊断 |
@@ -126,9 +141,10 @@ docker-compose -f deploy/docker-compose.yml up -d
 | `GET /api/scenarios/list` | 场景列表 |
 | `POST /api/scenarios/start` | 启动场景对话 |
 | `POST /api/asr/transcribe` | 语音转文字（百炼 ASR）|
+| `GET /api/asr/health` | ASR 服务健康检查 |
 | `POST /api/tts/audio` | 文字转语音（Edge TTS）|
 | `GET /api/achievements/list` | 成就列表 |
-| `POST /api/auth/login` | 用户登录 |
+| `POST /api/achievements/check` | 检查并解锁成就 |
 
 ## 🧠 Agent 工具
 
@@ -143,17 +159,60 @@ docker-compose -f deploy/docker-compose.yml up -d
 
 ```
 Tan同学-AI英语助教/
-├── api/                    # FastAPI 端点 (8 路由)
+├── api/                    # FastAPI 端点 (9 路由)
+│   ├── _user_sync.py       # 双数据库同步工具
+│   ├── auth.py             # JWT 认证 + 注册
+│   ├── tasks.py            # 每日任务 + 能力诊断
+│   ├── progress.py         # 学习进度 + 周报
+│   ├── achievements.py     # 成就检测与解锁
+│   └── ...
 ├── agent.py                # Agent 核心 (4 工具)
 ├── memory.py               # 文件系统记忆
 ├── rag/                    # RAG 系统 (ChromaDB + text-embedding-v4)
 ├── services/               # Edge TTS / 场景 / 周报 / 定时任务
 ├── database/               # SQLAlchemy ORM (7 表)
-├── frontend/               # React 前端 (5 页面)
+├── frontend/               # React 前端 (6 页面)
+│   └── src/
+│       ├── pages/
+│       │   ├── Dashboard.tsx      # 学习看板 + 新用户引导
+│       │   ├── DailyTasks.tsx     # 每日任务
+│       │   ├── ScenarioChat.tsx   # 场景对话
+│       │   ├── Progress.tsx       # 进度看板
+│       │   ├── Achievements.tsx   # 成就徽章页
+│       │   ├── Diagnosis.tsx      # 能力诊断 (NEW)
+│       │   └── Login.tsx          # 登录/注册 (NEW)
+│       └── components/
+│           ├── BottomNav.tsx       # 底部导航 (5 标签)
+│           ├── OnboardingGuide.tsx # 新用户引导卡片 (NEW)
+│           └── ...
+├── scripts/
+│   └── cdp_test.py         # Chrome CDP 自动化测试 (NEW)
 ├── deploy/                 # Docker 部署
 ├── SOUL.md                 # Agent 人格定义
 └── .env                    # 环境配置（百炼 API Key）
 ```
+
+## 🧪 CDP 自动化测试
+
+项目内置 Chrome DevTools Protocol 前端测试脚本，覆盖全部 9 个关键用户路径：
+
+```bash
+# 1. 启动 Chrome headless（仅测试需要）
+"C:\Program Files\Google\Chrome\Application\chrome.exe" \
+  --headless --disable-gpu \
+  --remote-debugging-port=9222 \
+  --remote-allow-origins=* \
+  --window-size=1920,1080
+
+# 2. 运行测试
+cd "d:/cc_demo/Tan同学-AI英语助教"
+PYTHONIOENCODING=utf-8 .venv/Scripts/python scripts/cdp_test.py
+
+# 3. 停止 Chrome
+taskkill /F /IM "chrome.exe"
+```
+
+测试覆盖：登录页 → 注册 → Dashboard → 诊断 → 场景对话 → 成就 → 退出 → 重新登录。截图保存至 `logs/screenshots/`。
 
 ## 🎓 求职展示要点
 
@@ -161,8 +220,9 @@ Tan同学-AI英语助教/
 2. **大模型应用**：Agent 工具调用循环 + LLM 动态任务生成 + Prompt 工程 + RAG
 3. **多模态集成**：ASR 语音识别 + TTS 语音合成 + 文本对话
 4. **云服务对接**：阿里云百炼 DashScope（Chat + Embedding + ASR）
-5. **工程化思维**：分层架构、数据库设计、API 文档、定时任务
-6. **产品思维**：从真实痛点出发，设计完整用户体验闭环
+5. **工程化思维**：分层架构、数据库设计、API 文档、定时任务、CDP 自动化测试
+6. **产品思维**：从真实痛点出发，设计完整用户体验闭环（注册→诊断→任务→成就）
+7. **前后端协同**：JWT 认证、双数据库同步、新用户引导流程
 
 ## 📝 License
 

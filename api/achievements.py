@@ -12,6 +12,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 from database.database import get_db_session
 from database.models import User, Achievement, DailyTask, PronunciationRecord, DialogHistory, DailyProgress, PRESET_ACHIEVEMENTS
 from api.schemas import AchievementInfo, APIResponse
+from api._user_sync import ensure_orm_user
 
 logger = logging.getLogger("edulingua-achievements")
 
@@ -82,7 +83,11 @@ async def check_and_unlock_achievements(user_id: str = "default"):
     try:
         user = db.query(User).filter(User.user_id == user_id).first()
         if not user:
-            return APIResponse(success=False, message="用户不存在")
+            return APIResponse(
+                success=True,
+                message="请先开始学习，解锁你的第一个成就！",
+                data={"new_unlocks": []}
+            )
 
         total_tasks = db.query(DailyTask).filter(DailyTask.user_id == user.id).count()
         total_pronounce = db.query(PronunciationRecord).filter(PronunciationRecord.user_id == user.id).count()
