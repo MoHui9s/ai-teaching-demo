@@ -40,6 +40,10 @@ export const auth = {
       method: 'POST',
       body: JSON.stringify({ email, password, name }),
     }),
+  verify: (token: string) =>
+    request<{ user_id: string; email: string }>(`/api/auth/verify?token=${encodeURIComponent(token)}`, {
+      method: 'POST',
+    }),
 }
 
 // Tasks
@@ -76,6 +80,8 @@ export const tts = {
       method: 'POST',
       body: JSON.stringify({ text, voice, rate }),
     }),
+  getVoices: () =>
+    request<{ voices: Record<string, { name: string; lang: string }> }>('/api/tts/voices'),
 }
 
 // Scenarios

@@ -9,6 +9,7 @@ import Diagnosis from './pages/Diagnosis'
 import Login from './pages/Login'
 import BottomNav from './components/BottomNav'
 import { useStudyTimer } from './hooks/useStudyTimer'
+import { auth } from './api/client'
 
 function App() {
   const [token, setToken] = useState<string | null>(localStorage.getItem('edulingua_token'))
@@ -33,6 +34,13 @@ function App() {
       localStorage.removeItem('edulingua_token')
     }
   }, [token])
+
+  // Token 自动校验：挂载时验证 token 有效性，过期则登出
+  useEffect(() => {
+    if (token) {
+      auth.verify(token).catch(() => handleLogout())
+    }
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   if (!token) {
     return <Login onLogin={handleLogin} />

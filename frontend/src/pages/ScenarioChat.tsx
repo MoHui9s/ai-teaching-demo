@@ -14,6 +14,7 @@ export default function ScenarioChat() {
   const [sceneList, setSceneList] = useState<any[]>([])
   const [selectedScene, setSelectedScene] = useState('restaurant')
   const [selectedDifficulty, setSelectedDifficulty] = useState('easy')
+  const [difficultyFilter, setDifficultyFilter] = useState('all')
   const [started, setStarted] = useState(false)
   const [opening, setOpening] = useState('')
   const [messages, setMessages] = useState<{ role: string; content: string }[]>([])
@@ -76,9 +77,26 @@ export default function ScenarioChat() {
         <h1 className="page-title">场景对话</h1>
         <p className="page-subtitle">选择一个场景，AI 陪你练口语</p>
 
+        {/* 难度筛选 */}
+        <div className="flex gap-2">
+          {['all', 'easy', 'medium', 'hard'].map(d => (
+            <button
+              key={d}
+              onClick={() => setDifficultyFilter(d)}
+              className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
+                difficultyFilter === d
+                  ? 'bg-primary-500 text-white'
+                  : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+              }`}
+            >
+              {d === 'all' ? '全部' : DIFFICULTIES.find(x => x.value === d)?.label || d}
+            </button>
+          ))}
+        </div>
+
         {/* 场景选择 */}
         <div className="space-y-3">
-          {sceneList.map(scene => (
+          {sceneList.filter(s => difficultyFilter === 'all' || s.difficulty === difficultyFilter).map(scene => (
             <button
               key={scene.id}
               onClick={() => setSelectedScene(scene.id)}

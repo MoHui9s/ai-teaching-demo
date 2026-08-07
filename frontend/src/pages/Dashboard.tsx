@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { tasks } from '../api/client'
+import { tasks, tts } from '../api/client'
 import { useNavigate } from 'react-router-dom'
 import { Flame, Clock, Target, BookOpen, ChevronRight, Sparkles, Mic, MessageCircle, LogOut } from 'lucide-react'
 import OnboardingGuide from '../components/OnboardingGuide'
@@ -14,12 +14,19 @@ export default function Dashboard({ onLogout, todayMinutes }: DashboardProps) {
   const [dailyTasks, setDailyTasks] = useState<any>(null)
   const [progress, setProgress] = useState<any>(null)
   const [loading, setLoading] = useState(true)
+  const [voices, setVoices] = useState<Record<string, { name: string; lang: string }>>({})
+  const [ttsVoice, setTtsVoice] = useState(localStorage.getItem('tts_voice') || 'en-US-AriaNeural')
+  const [history, setHistory] = useState<any[]>([])
   const navigate = useNavigate()
 
   useEffect(() => {
     Promise.all([
       tasks.getDaily().catch(() => null),
       fetch('/api/progress/overview').then(r => r.json()).catch(() => null),
+      tts.getVoices().then(r => setVoices(r.voices || {})).catch(() => {}),
+      tasks.getHistory(7).then(r => {
+        if (r?.data?.tasks) setHistory(r.data.tasks)
+      }).catch(() => {}),
     ]).then(([taskData, progressData]) => {
       if (taskData?.data) setDailyTasks(taskData.data)
       if (progressData?.data) setProgress(progressData.data)
@@ -56,6 +63,18 @@ export default function Dashboard({ onLogout, todayMinutes }: DashboardProps) {
             <Flame size={18} />
             <span className="font-bold text-sm">{streak} 天</span>
           </div>
+          <select
+            value={ttsVoice}
+            onChange={e => { setTtsVoice(e.target.value); localStorage.setItem('tts_voice', e.target.value) }}
+            className="text-xs bg-gray-50 border-0 rounded-lg px-2 py-1.5 text-gray-600 max-w-[120px]"
+          >
+            {Object.entries(voices).length === 0 && (
+              <option value="en-US-AriaNeural">Aria (US)</option>
+            )}
+            {Object.entries(voices).map(([k, v]) => (
+              <option key={k} value={k}>{v.name.split(' - ')[1] || v.name}</option>
+            ))}
+          </select>
           <button
             onClick={onLogout}
             className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
@@ -143,6 +162,38 @@ export default function Dashboard({ onLogout, todayMinutes }: DashboardProps) {
           </div>
         </button>
       </div>
+
+      {/* 近 7 天完成趋势 */}
+      {history.length > 0 && (
+        <div className="card">
+          <h3 className="font-semibold text-sm mb-3">近 7 天完成情况</h3>
+          <div className="flex items-end justify-between gap-1 h-16">
+            {history.map((t: any, i: number) => {
+              const done = t.task_content?.filter((c: any) => c.status === 'done').length || 0
+              const total = t.task_content?.length || 3
+              const pct = total > 0 ? (done / total) * 100 : 0
+              return (
+                <div key={i} className="flex-1 flex flex-col items-center gap-1">
+                  <div className="w-full flex items-end justify-center" style={{ height: 48 }}>
+                    <div
+                      className="w-full max-w-[24px] rounded-t-sm transition-all"
+                      style={{
+                        height: `${Math.max(pct * 0.4, 4)}px`,
+                        backgroundColor: pct === 100 ? '#22c55e' : pct > 0 ? '#3b82f6' : '#e5e7eb',
+                      }}
+                    />
+                  </div>
+                  <span className="text-[10px] text-gray-400">{t.date?.slice(5) || '-'}</span>
+                </div>
+              )
+            })}
+          </div>
+          <div className="flex items-center justify-between mt-2 text-[10px] text-gray-400">
+            <span>{history.length} 天前</span>
+            <span>今天</span>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
